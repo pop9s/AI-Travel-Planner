@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Plane, MapPin, Calendar, Users, Wallet, Sparkles, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -8,6 +8,11 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import TravelPlan from '@/components/TravelPlan'
+import LanguageSelector from '@/components/LanguageSelector'
+import VoiceInput from '@/components/VoiceInput'
+import BudgetManager from '@/components/BudgetManager'
+import { Language, detectFormLanguage } from '@/lib/languageDetection'
+import { getTranslations } from '@/lib/i18n'
 
 interface TravelFormData {
   destination: string
@@ -17,6 +22,134 @@ interface TravelFormData {
   interests: string
   startDate: string
   specialRequests: string
+}
+
+// 语音识别文本转数字的辅助函数
+function extractNumber(text: string): number | null {
+  // 移除空格并转小写
+  const cleaned = text.replace(/\s+/g, '').toLowerCase()
+  
+  // 直接匹配数字
+  const directMatch = cleaned.match(/\d+/)
+  if (directMatch) {
+    return parseInt(directMatch[0], 10)
+  }
+  
+  // 中文数字映射
+  const chineseNumbers: Record<string, number> = {
+    '零': 0, '一': 1, '二': 2, '三': 3, '四': 4, '五': 5,
+    '六': 6, '七': 7, '八': 8, '九': 9, '十': 10,
+    '两': 2, '俩': 2, '仨': 3,
+    '百': 100, '千': 1000, '万': 10000,
+  }
+  
+  // 处理特殊表达
+  if (cleaned.includes('一周') || cleaned.includes('1周')) return 7
+  if (cleaned.includes('两周') || cleaned.includes('2周')) return 14
+  if (cleaned.includes('一个月') || cleaned.includes('1个月')) return 30
+  if (cleaned.includes('半个月')) return 15
+  if (cleaned.includes('一家三口')) return 3
+  if (cleaned.includes('一家四口')) return 4
+  
+  // 简单的中文数字转换
+  for (const [chinese, value] of Object.entries(chineseNumbers)) {
+    if (cleaned.includes(chinese)) {
+      // 处理"十"的特殊情况
+      if (chinese === '十') {
+        const beforeTen = cleaned.split('十')[0]
+        const afterTen = cleaned.split('十')[1]
+        let result = 10
+        
+        // 前面有数字，如"二十"
+        if (beforeTen && chineseNumbers[beforeTen]) {
+          result = chineseNumbers[beforeTen] * 10
+        }
+        // 后面有数字，如"十五"
+        if (afterTen && chineseNumbers[afterTen]) {
+          result += chineseNumbers[afterTen]
+        }
+        return result
+      }
+      
+      // 处理"千"、"万"
+      if (chinese === '千' || chinese === '万' || chinese === '百') {
+        const beforeUnit = cleaned.split(chinese)[0]
+        let multiplier = 1
+        if (beforeUnit && chineseNumbers[beforeUnit]) {
+          multiplier = chineseNumbers[beforeUnit]
+        }
+        return multiplier * value
+      }
+      
+      return value
+    }
+  }
+  
+  return null
+}
+
+// 语音识别文本转日期的辅助函数
+function parseVoiceToDate(text: string): string | null {
+  const today = new Date()
+  const cleaned = text.replace(/\s+/g, '').toLowerCase()
+  
+  // 处理相对日期
+  if (cleaned.includes('今天') || cleaned.includes('今日')) {
+    return formatDate(today)
+  }
+  
+  if (cleaned.includes('明天') || cleaned.includes('明日')) {
+    const tomorrow = new Date(today)
+    tomorrow.setDate(tomorrow.getDate() + 1)
+    return formatDate(tomorrow)
+  }
+  
+  if (cleaned.includes('后天')) {
+    const dayAfterTomorrow = new Date(today)
+    dayAfterTomorrow.setDate(dayAfterTomorrow.getDate() + 2)
+    return formatDate(dayAfterTomorrow)
+  }
+  
+  // 处理"下周一"等
+  const weekdays = ['日', '一', '二', '三', '四', '五', '六']
+  const weekdayMatch = cleaned.match(/下周([一二三四五六日])/)
+  if (weekdayMatch) {
+    const targetDay = weekdays.indexOf(weekdayMatch[1])
+    const daysUntilNextWeek = 7 - today.getDay()
+    const targetDate = new Date(today)
+    targetDate.setDate(today.getDate() + daysUntilNextWeek + targetDay)
+    return formatDate(targetDate)
+  }
+  
+  // 尝试匹配具体日期格式：YYYY年MM月DD日、YYYY-MM-DD等
+  const datePatterns = [
+    /(\d{4})年(\d{1,2})月(\d{1,2})日?/,
+    /(\d{4})-(\d{1,2})-(\d{1,2})/,
+    /(\d{4})\/(\d{1,2})\/(\d{1,2})/,
+  ]
+  
+  for (const pattern of datePatterns) {
+    const match = text.match(pattern)
+    if (match) {
+      const year = parseInt(match[1], 10)
+      const month = parseInt(match[2], 10) - 1
+      const day = parseInt(match[3], 10)
+      const date = new Date(year, month, day)
+      if (!isNaN(date.getTime())) {
+        return formatDate(date)
+      }
+    }
+  }
+  
+  return null
+}
+
+// 格式化日期为 YYYY-MM-DD
+function formatDate(date: Date): string {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
 }
 
 export default function Home() {
@@ -33,6 +166,19 @@ export default function Home() {
   const [loading, setLoading] = useState(false)
   const [travelPlan, setTravelPlan] = useState<string>('')
   const [error, setError] = useState<string>('')
+  const [selectedLanguage, setSelectedLanguage] = useState<Language>('auto')
+  const [detectedLanguage, setDetectedLanguage] = useState<Language>('zh')
+
+  // 获取翻译文本
+  const t = getTranslations(selectedLanguage === 'auto' ? detectedLanguage : selectedLanguage)
+
+  // 自动检测语言
+  useEffect(() => {
+    if (selectedLanguage === 'auto') {
+      const detected = detectFormLanguage(formData)
+      setDetectedLanguage(detected)
+    }
+  }, [formData, selectedLanguage])
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
@@ -45,23 +191,29 @@ export default function Home() {
     setError('')
     setTravelPlan('')
 
+    // 确定最终使用的语言
+    const finalLanguage = selectedLanguage === 'auto' ? detectedLanguage : selectedLanguage
+
     try {
       const response = await fetch('/api/plan', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          ...formData,
+          language: finalLanguage,
+        }),
       })
 
       if (!response.ok) {
-        throw new Error('生成旅行计划失败')
+        throw new Error(t.errorTitle)
       }
 
       const data = await response.json()
       setTravelPlan(data.plan)
     } catch (err) {
-      setError(err instanceof Error ? err.message : '发生未知错误')
+      setError(err instanceof Error ? err.message : t.errorTitle)
     } finally {
       setLoading(false)
     }
@@ -72,16 +224,22 @@ export default function Home() {
       {/* Header */}
       <header className="bg-white/80 backdrop-blur-sm border-b sticky top-0 z-10">
         <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center gap-3">
-            <div className="bg-gradient-to-br from-blue-500 to-purple-600 p-2 rounded-lg">
-              <Plane className="h-6 w-6 text-white" />
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="bg-gradient-to-br from-blue-500 to-purple-600 p-2 rounded-lg">
+                <Plane className="h-6 w-6 text-white" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                  {t.appTitle}
+                </h1>
+                <p className="text-sm text-gray-600">{t.appSubtitle}</p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                AI Travel Planner
-              </h1>
-              <p className="text-sm text-gray-600">智能旅行规划助手</p>
-            </div>
+            <LanguageSelector
+              currentLanguage={selectedLanguage}
+              onLanguageChange={setSelectedLanguage}
+            />
           </div>
         </div>
       </header>
@@ -90,10 +248,10 @@ export default function Home() {
       <section className="container mx-auto px-4 py-12 text-center">
         <div className="max-w-3xl mx-auto space-y-4">
           <h2 className="text-4xl md:text-5xl font-bold text-gray-900">
-            让AI为你规划完美旅程
+            {t.heroTitle}
           </h2>
           <p className="text-lg text-gray-600">
-            只需告诉我们你的需求，AI将为你量身定制专属旅行计划
+            {t.heroDescription}
           </p>
         </div>
       </section>
@@ -106,10 +264,10 @@ export default function Home() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Sparkles className="h-5 w-5 text-purple-600" />
-                填写旅行需求
+                {t.formTitle}
               </CardTitle>
               <CardDescription>
-                请填写以下信息,AI将为您生成个性化旅行计划
+                {t.formDescription}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -117,48 +275,88 @@ export default function Home() {
                 <div className="space-y-2">
                   <Label htmlFor="destination" className="flex items-center gap-2">
                     <MapPin className="h-4 w-4" />
-                    目的地 *
+                    {t.destination} *
                   </Label>
-                  <Input
-                    id="destination"
-                    name="destination"
-                    placeholder="例如: 日本东京"
-                    value={formData.destination}
-                    onChange={handleInputChange}
-                    required
-                  />
+                  <div className="flex gap-2">
+                    <Input
+                      id="destination"
+                      name="destination"
+                      placeholder={t.destinationPlaceholder}
+                      value={formData.destination}
+                      onChange={handleInputChange}
+                      required
+                      className="flex-1"
+                    />
+                    <VoiceInput
+                      onTranscript={(text) => {
+                        setFormData(prev => ({ ...prev, destination: text }))
+                      }}
+                      language={selectedLanguage === 'auto' ? detectedLanguage : selectedLanguage}
+                      fieldName={t.destination}
+                    />
+                  </div>
                 </div>
 
                 <div className="grid md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="startDate" className="flex items-center gap-2">
                       <Calendar className="h-4 w-4" />
-                      出发日期 *
+                      {t.startDate} *
                     </Label>
-                    <Input
-                      id="startDate"
-                      name="startDate"
-                      type="date"
-                      value={formData.startDate}
-                      onChange={handleInputChange}
-                      required
-                    />
+                    <div className="flex gap-2">
+                      <Input
+                        id="startDate"
+                        name="startDate"
+                        type="date"
+                        value={formData.startDate}
+                        onChange={handleInputChange}
+                        required
+                        className="flex-1"
+                      />
+                      <VoiceInput
+                        onTranscript={(text) => {
+                          // 尝试解析日期文本，例如 "明天"、"下周一"、"2024年1月1日" 等
+                          const parsedDate = parseVoiceToDate(text)
+                          if (parsedDate) {
+                            setFormData(prev => ({ ...prev, startDate: parsedDate }))
+                          } else {
+                            setFormData(prev => ({ ...prev, startDate: text }))
+                          }
+                        }}
+                        language={selectedLanguage === 'auto' ? detectedLanguage : selectedLanguage}
+                        fieldName={t.startDate}
+                      />
+                    </div>
                   </div>
 
                   <div className="space-y-2">
                     <Label htmlFor="duration">
-                      旅行天数 *
+                      {t.duration} *
                     </Label>
-                    <Input
-                      id="duration"
-                      name="duration"
-                      type="number"
-                      placeholder="例如: 7"
-                      value={formData.duration}
-                      onChange={handleInputChange}
-                      required
-                      min="1"
-                    />
+                    <div className="flex gap-2">
+                      <Input
+                        id="duration"
+                        name="duration"
+                        type="number"
+                        placeholder={t.durationPlaceholder}
+                        value={formData.duration}
+                        onChange={handleInputChange}
+                        required
+                        min="1"
+                        className="flex-1"
+                      />
+                      <VoiceInput
+                        onTranscript={(text) => {
+                          // 提取数字，例如 "三天"、"5天"、"一周" 等
+                          const number = extractNumber(text)
+                          if (number) {
+                            setFormData(prev => ({ ...prev, duration: number.toString() }))
+                          }
+                        }}
+                        language={selectedLanguage === 'auto' ? detectedLanguage : selectedLanguage}
+                        fieldName={t.duration}
+                      />
+                    </div>
                   </div>
                 </div>
 
@@ -166,64 +364,117 @@ export default function Home() {
                   <div className="space-y-2">
                     <Label htmlFor="travelers" className="flex items-center gap-2">
                       <Users className="h-4 w-4" />
-                      旅行人数 *
+                      {t.travelers} *
                     </Label>
-                    <Input
-                      id="travelers"
-                      name="travelers"
-                      type="number"
-                      placeholder="例如: 2"
-                      value={formData.travelers}
-                      onChange={handleInputChange}
-                      required
-                      min="1"
-                    />
+                    <div className="flex gap-2">
+                      <Input
+                        id="travelers"
+                        name="travelers"
+                        type="number"
+                        placeholder={t.travelersPlaceholder}
+                        value={formData.travelers}
+                        onChange={handleInputChange}
+                        required
+                        min="1"
+                        className="flex-1"
+                      />
+                      <VoiceInput
+                        onTranscript={(text) => {
+                          // 提取数字，例如 "两个人"、"4人"、"一家三口" 等
+                          const number = extractNumber(text)
+                          if (number) {
+                            setFormData(prev => ({ ...prev, travelers: number.toString() }))
+                          }
+                        }}
+                        language={selectedLanguage === 'auto' ? detectedLanguage : selectedLanguage}
+                        fieldName={t.travelers}
+                      />
+                    </div>
                   </div>
 
                   <div className="space-y-2">
                     <Label htmlFor="budget" className="flex items-center gap-2">
                       <Wallet className="h-4 w-4" />
-                      预算(CNY) *
+                      {t.budget} *
                     </Label>
-                    <Input
-                      id="budget"
-                      name="budget"
-                      type="number"
-                      placeholder="例如: 10000"
-                      value={formData.budget}
-                      onChange={handleInputChange}
-                      required
-                      min="0"
-                    />
+                    <div className="flex gap-2">
+                      <Input
+                        id="budget"
+                        name="budget"
+                        type="number"
+                        placeholder={t.budgetPlaceholder}
+                        value={formData.budget}
+                        onChange={handleInputChange}
+                        required
+                        min="0"
+                        className="flex-1"
+                      />
+                      <VoiceInput
+                        onTranscript={(text) => {
+                          // 提取数字，例如 "五千元"、"10000"、"一万块" 等
+                          const number = extractNumber(text)
+                          if (number) {
+                            setFormData(prev => ({ ...prev, budget: number.toString() }))
+                          }
+                        }}
+                        language={selectedLanguage === 'auto' ? detectedLanguage : selectedLanguage}
+                        fieldName={t.budget}
+                      />
+                    </div>
                   </div>
                 </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="interests">
-                    兴趣爱好 *
+                    {t.interests} *
                   </Label>
-                  <Input
-                    id="interests"
-                    name="interests"
-                    placeholder="例如: 美食、历史文化、自然风光"
-                    value={formData.interests}
-                    onChange={handleInputChange}
-                    required
-                  />
+                  <div className="flex gap-2">
+                    <Input
+                      id="interests"
+                      name="interests"
+                      placeholder={t.interestsPlaceholder}
+                      value={formData.interests}
+                      onChange={handleInputChange}
+                      required
+                      className="flex-1"
+                    />
+                    <VoiceInput
+                      onTranscript={(text) => {
+                        setFormData(prev => ({ ...prev, interests: text }))
+                      }}
+                      language={selectedLanguage === 'auto' ? detectedLanguage : selectedLanguage}
+                      fieldName={t.interests}
+                    />
+                  </div>
                 </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="specialRequests">
-                    特殊要求
+                    {t.specialRequests}
                   </Label>
-                  <Textarea
-                    id="specialRequests"
-                    name="specialRequests"
-                    placeholder="例如: 希望入住高评分酒店、需要无障碍设施、素食餐厅推荐等..."
-                    value={formData.specialRequests}
-                    onChange={handleInputChange}
-                    rows={4}
-                  />
+                  <div className="flex gap-2">
+                    <Textarea
+                      id="specialRequests"
+                      name="specialRequests"
+                      placeholder={t.specialRequestsPlaceholder}
+                      value={formData.specialRequests}
+                      onChange={handleInputChange}
+                      rows={4}
+                      className="flex-1"
+                    />
+                    <VoiceInput
+                      onTranscript={(text) => {
+                        setFormData(prev => ({
+                          ...prev,
+                          specialRequests: prev.specialRequests
+                            ? `${prev.specialRequests} ${text}`
+                            : text
+                        }))
+                      }}
+                      language={selectedLanguage === 'auto' ? detectedLanguage : selectedLanguage}
+                      fieldName={t.specialRequests}
+                    />
+                  </div>
                 </div>
 
                 <Button 
@@ -234,12 +485,12 @@ export default function Home() {
                   {loading ? (
                     <>
                       <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                      AI正在生成规划中...
+                      {t.generating}
                     </>
                   ) : (
                     <>
                       <Sparkles className="mr-2 h-5 w-5" />
-                      生成AI旅行计划
+                      {t.generateButton}
                     </>
                   )}
                 </Button>
@@ -260,9 +511,9 @@ export default function Home() {
             ) : (
               <Card className="shadow-xl">
                 <CardHeader>
-                  <CardTitle>你的专属旅行计划</CardTitle>
+                  <CardTitle>{t.resultTitle}</CardTitle>
                   <CardDescription>
-                    填写左侧表单后,AI将在这里生成详细的旅行计划
+                    {t.resultDescription}
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -271,7 +522,7 @@ export default function Home() {
                       <Plane className="h-12 w-12 text-blue-600" />
                     </div>
                     <p className="text-gray-500 max-w-sm">
-                      填写您的旅行偏好,让AI为您创建一个难忘的旅行体验
+                      {t.resultPlaceholder}
                     </p>
                   </div>
                 </CardContent>
@@ -281,10 +532,43 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Budget Manager Section */}
+      {formData.budget && parseFloat(formData.budget) > 0 && (
+        <section className="container mx-auto px-4 pb-16">
+          <div className="max-w-4xl mx-auto">
+            <BudgetManager
+              totalBudget={parseFloat(formData.budget)}
+              language={selectedLanguage === 'auto' ? detectedLanguage : selectedLanguage}
+              translations={{
+                budgetTitle: t.budgetTitle,
+                budgetDescription: t.budgetDescription,
+                totalBudget: t.totalBudget,
+                spent: t.spent,
+                remaining: t.remaining,
+                addExpense: t.addExpense,
+                category: t.category,
+                amount: t.amount,
+                description: t.description,
+                categoryFood: t.categoryFood,
+                categoryTransport: t.categoryTransport,
+                categoryAccommodation: t.categoryAccommodation,
+                categoryActivity: t.categoryActivity,
+                categoryShopping: t.categoryShopping,
+                categoryOther: t.categoryOther,
+                noExpenses: t.noExpenses,
+                analyzeButton: t.analyzeButton,
+                analyzing: t.analyzing,
+                aiAnalysis: t.aiAnalysis,
+              }}
+            />
+          </div>
+        </section>
+      )}
+
       {/* Footer */}
       <footer className="bg-white/80 backdrop-blur-sm border-t mt-16">
         <div className="container mx-auto px-4 py-6 text-center text-sm text-gray-600">
-          <p>Powered by AI • 让每一次旅行都成为美好回忆</p>
+          <p>{t.footerText}</p>
         </div>
       </footer>
     </main>

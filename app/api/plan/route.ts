@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { Language, getLanguagePromptPrefix } from '@/lib/languageDetection'
 
 // 通义千问 API 配置
 const DASHSCOPE_API_KEY = process.env.DASHSCOPE_API_KEY || ''
@@ -12,13 +13,14 @@ interface TravelRequest {
   interests: string
   startDate: string
   specialRequests?: string
+  language?: Language
 }
 
 export async function POST(request: NextRequest) {
   try {
     const body: TravelRequest = await request.json()
     
-    const { destination, duration, travelers, budget, interests, startDate, specialRequests } = body
+    const { destination, duration, travelers, budget, interests, startDate, specialRequests, language = 'zh' } = body
 
     // Validate required fields
     if (!destination || !duration || !travelers || !budget || !interests || !startDate) {
@@ -28,8 +30,11 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // 获取语言特定的提示词前缀
+    const languagePrefix = getLanguagePromptPrefix(language)
+
     // Create the prompt for AI
-    const systemPrompt = '你是一位经验丰富、热情专业的AI旅行规划师。你精通世界各地的旅游信息，擅长根据旅客的需求和预算制定个性化的旅行计划。你的建议总是实用、详细且富有创意。'
+    const systemPrompt = `${languagePrefix} 你是一位经验丰富、热情专业的AI旅行规划师。你精通世界各地的旅游信息，擅长根据旅客的需求和预算制定个性化的旅行计划。你的建议总是实用、详细且富有创意。`
     
     const userPrompt = `请根据以下信息为旅客制定一个详细、实用且个性化的旅行计划：
 
