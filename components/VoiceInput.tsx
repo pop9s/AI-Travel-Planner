@@ -180,7 +180,7 @@ export default function VoiceInput({
             <span className="font-medium">正在录音...</span>
           </div>
           {interimText && (
-            <p className="text-xs text-gray-600 mt-1 italic">"{interimText}"</p>
+            <p className="text-xs text-gray-600 mt-1 italic">&ldquo;{interimText}&rdquo;</p>
           )}
           <div className="flex items-center justify-between mt-1">
             <p className="text-xs text-gray-500">

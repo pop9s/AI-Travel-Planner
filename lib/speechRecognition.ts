@@ -5,6 +5,55 @@
 
 import { Language } from './languageDetection'
 
+// Web Speech API 类型声明
+declare global {
+  interface Window {
+    SpeechRecognition: typeof SpeechRecognition
+    webkitSpeechRecognition: typeof SpeechRecognition
+  }
+}
+
+interface SpeechRecognitionEvent extends Event {
+  results: SpeechRecognitionResultList
+  resultIndex: number
+}
+
+interface SpeechRecognitionResultList {
+  length: number
+  item(index: number): SpeechRecognitionResult
+  [index: number]: SpeechRecognitionResult
+}
+
+interface SpeechRecognitionResult {
+  isFinal: boolean
+  length: number
+  item(index: number): SpeechRecognitionAlternative
+  [index: number]: SpeechRecognitionAlternative
+}
+
+interface SpeechRecognitionAlternative {
+  transcript: string
+  confidence: number
+}
+
+interface SpeechRecognition extends EventTarget {
+  continuous: boolean
+  interimResults: boolean
+  lang: string
+  maxAlternatives: number
+  start(): void
+  stop(): void
+  abort(): void
+  onresult: ((event: SpeechRecognitionEvent) => void) | null
+  onerror: ((event: Event) => void) | null
+  onend: (() => void) | null
+}
+
+declare const SpeechRecognition: {
+  prototype: SpeechRecognition
+  new (): SpeechRecognition
+}
+
 // 检查浏览器是否支持语音识别
 export function isSpeechRecognitionSupported(): boolean {
   return 'webkitSpeechRecognition' in window || 'SpeechRecognition' in window
@@ -30,13 +79,13 @@ export interface SpeechRecognitionOptions {
   maxAlternatives?: number
 }
 
-export interface SpeechRecognitionResult {
+export interface SpeechRecognitionResultData {
   transcript: string
   confidence: number
   isFinal: boolean
 }
 
-export type SpeechRecognitionCallback = (result: SpeechRecognitionResult) => void
+export type SpeechRecognitionCallback = (result: SpeechRecognitionResultData) => void
 export type SpeechRecognitionErrorCallback = (error: string) => void
 
 /**

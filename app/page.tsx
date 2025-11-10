@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Plane, MapPin, Calendar, Users, Wallet, Sparkles, Loader2 } from 'lucide-react'
+import { useSession } from 'next-auth/react'
+import { Plane, MapPin, Calendar, Users, Wallet, Sparkles, Loader2, Save, CheckCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -11,6 +12,8 @@ import TravelPlan from '@/components/TravelPlan'
 import LanguageSelector from '@/components/LanguageSelector'
 import VoiceInput from '@/components/VoiceInput'
 import BudgetManager from '@/components/BudgetManager'
+import UserMenu from '@/components/UserMenu'
+import AuthModal from '@/components/AuthModal'
 import { Language, detectFormLanguage } from '@/lib/languageDetection'
 import { getTranslations } from '@/lib/i18n'
 
@@ -153,6 +156,7 @@ function formatDate(date: Date): string {
 }
 
 export default function Home() {
+  const { data: session } = useSession()
   const [formData, setFormData] = useState<TravelFormData>({
     destination: '',
     duration: '',
@@ -168,6 +172,9 @@ export default function Home() {
   const [error, setError] = useState<string>('')
   const [selectedLanguage, setSelectedLanguage] = useState<Language>('auto')
   const [detectedLanguage, setDetectedLanguage] = useState<Language>('zh')
+  const [showAuthModal, setShowAuthModal] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
 
   // 获取翻译文本
   const t = getTranslations(selectedLanguage === 'auto' ? detectedLanguage : selectedLanguage)
@@ -190,6 +197,7 @@ export default function Home() {
     setLoading(true)
     setError('')
     setTravelPlan('')
+    setSaved(false)
 
     // 确定最终使用的语言
     const finalLanguage = selectedLanguage === 'auto' ? detectedLanguage : selectedLanguage
@@ -219,6 +227,61 @@ export default function Home() {
     }
   }
 
+  const handleSavePlan = async () => {
+    if (!session) {
+      setShowAuthModal(true)
+      return
+    }
+
+    if (!travelPlan) {
+      alert('请先生成旅行计划')
+      return
+    }
+
+    setSaving(true)
+
+    try {
+      // 计算结束日期
+      const endDate = new Date(formData.startDate)
+      endDate.setDate(endDate.getDate() + parseInt(formData.duration) - 1)
+
+      const response = await fetch('/api/travel-plans', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          title: `${formData.destination} ${parseInt(formData.duration)}日游`,
+          destination: formData.destination,
+          startDate: formData.startDate,
+          endDate: endDate.toISOString().split('T')[0],
+          duration: parseInt(formData.duration),
+          travelers: parseInt(formData.travelers),
+          budget: parseFloat(formData.budget),
+          interests: formData.interests,
+          specialRequests: formData.specialRequests,
+          plan: travelPlan,
+          status: 'draft',
+          language: selectedLanguage === 'auto' ? detectedLanguage : selectedLanguage,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        setSaved(true)
+        setTimeout(() => setSaved(false), 3000)
+      } else {
+        alert(data.message || '保存失败')
+      }
+    } catch (error) {
+      console.error('保存计划失败:', error)
+      alert('保存失败，请稍后再试')
+    } finally {
+      setSaving(false)
+    }
+  }
+
   return (
     <main className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
       {/* Header */}
@@ -236,13 +299,22 @@ export default function Home() {
                 <p className="text-sm text-gray-600">{t.appSubtitle}</p>
               </div>
             </div>
-            <LanguageSelector
-              currentLanguage={selectedLanguage}
-              onLanguageChange={setSelectedLanguage}
-            />
+            <div className="flex items-center gap-4">
+              <LanguageSelector
+                currentLanguage={selectedLanguage}
+                onLanguageChange={setSelectedLanguage}
+              />
+              <UserMenu onSignInClick={() => setShowAuthModal(true)} />
+            </div>
           </div>
         </div>
       </header>
+
+      {/* Auth Modal */}
+      <AuthModal
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+      />
 
       {/* Hero Section */}
       <section className="container mx-auto px-4 py-12 text-center">
@@ -505,9 +577,41 @@ export default function Home() {
           </Card>
 
           {/* Result Section */}
-          <div className="lg:sticky lg:top-24 h-fit">
+          <div className="lg:sticky lg:top-24 h-fit space-y-4">
             {travelPlan ? (
-              <TravelPlan plan={travelPlan} destination={formData.destination} />
+              <>
+                {/* Save Button */}
+                {session && (
+                  <Card className="shadow-xl">
+                    <CardContent className="pt-6">
+                      <Button
+                        onClick={handleSavePlan}
+                        disabled={saving || saved}
+                        className="w-full"
+                        variant={saved ? "outline" : "default"}
+                      >
+                        {saving ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            保存中...
+                          </>
+                        ) : saved ? (
+                          <>
+                            <CheckCircle className="mr-2 h-4 w-4 text-green-600" />
+                            已保存
+                          </>
+                        ) : (
+                          <>
+                            <Save className="mr-2 h-4 w-4" />
+                            保存计划
+                          </>
+                        )}
+                      </Button>
+                    </CardContent>
+                  </Card>
+                )}
+                <TravelPlan plan={travelPlan} destination={formData.destination} />
+              </>
             ) : (
               <Card className="shadow-xl">
                 <CardHeader>

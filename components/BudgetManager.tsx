@@ -1,12 +1,13 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useSession } from 'next-auth/react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Wallet, Plus, Trash2, TrendingUp, TrendingDown, Loader2, Sparkles } from 'lucide-react'
+import { Wallet, Plus, Trash2, TrendingUp, TrendingDown, Loader2, Sparkles, Cloud, CloudOff } from 'lucide-react'
 import VoiceInput from '@/components/VoiceInput'
 import { Language } from '@/lib/languageDetection'
 
@@ -21,6 +22,7 @@ export interface Expense {
 interface BudgetManagerProps {
   totalBudget: number
   language: Language
+  travelPlanId?: string
   translations: {
     budgetTitle: string
     budgetDescription: string
@@ -44,7 +46,8 @@ interface BudgetManagerProps {
   }
 }
 
-export default function BudgetManager({ totalBudget, language, translations: t }: BudgetManagerProps) {
+export default function BudgetManager({ totalBudget, language, travelPlanId, translations: t }: BudgetManagerProps) {
+  const { data: session } = useSession()
   const [expenses, setExpenses] = useState<Expense[]>([])
   const [newExpense, setNewExpense] = useState({
     category: 'food',
@@ -53,27 +56,109 @@ export default function BudgetManager({ totalBudget, language, translations: t }
   })
   const [aiAnalysis, setAiAnalysis] = useState<string>('')
   const [analyzing, setAnalyzing] = useState(false)
+  const [cloudSync, setCloudSync] = useState(false)
+  const [syncing, setSyncing] = useState(false)
+
+  // 加载云端费用记录
+  useEffect(() => {
+    if (session && travelPlanId) {
+      fetchExpenses()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session, travelPlanId])
+
+  const fetchExpenses = async () => {
+    if (!session) return
+
+    setSyncing(true)
+    try {
+      const url = travelPlanId 
+        ? `/api/expenses?travelPlanId=${travelPlanId}`
+        : '/api/expenses'
+      
+      const response = await fetch(url)
+      const data = await response.json()
+
+      if (data.success && data.expenses) {
+        setExpenses(data.expenses.map((exp: {
+          _id: string
+          category: string
+          amount: number
+          description: string
+          date: string
+        }) => ({
+          id: exp._id,
+          category: exp.category,
+          amount: exp.amount,
+          description: exp.description,
+          date: exp.date,
+        })))
+        setCloudSync(true)
+      }
+    } catch (error) {
+      console.error('加载费用记录失败:', error)
+    } finally {
+      setSyncing(false)
+    }
+  }
 
   const totalSpent = expenses.reduce((sum, expense) => sum + expense.amount, 0)
   const remaining = totalBudget - totalSpent
   const spentPercentage = (totalSpent / totalBudget) * 100
 
-  const handleAddExpense = () => {
-    if (newExpense.amount && parseFloat(newExpense.amount) > 0) {
-      const expense: Expense = {
-        id: Date.now().toString(),
-        category: newExpense.category,
-        amount: parseFloat(newExpense.amount),
-        description: newExpense.description,
-        date: new Date().toISOString(),
-      }
-      setExpenses([...expenses, expense])
-      setNewExpense({ category: 'food', amount: '', description: '' })
-      setAiAnalysis('') // 清除旧的分析
+  const handleAddExpense = async () => {
+    if (!newExpense.amount || parseFloat(newExpense.amount) <= 0) return
+
+    const expense: Expense = {
+      id: Date.now().toString(),
+      category: newExpense.category,
+      amount: parseFloat(newExpense.amount),
+      description: newExpense.description,
+      date: new Date().toISOString(),
     }
+
+    // 如果用户已登录，同步到云端
+    if (session) {
+      try {
+        const response = await fetch('/api/expenses', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            travelPlanId,
+            category: expense.category,
+            amount: expense.amount,
+            description: expense.description,
+            date: expense.date,
+          }),
+        })
+
+        const data = await response.json()
+        if (data.success && data.expense) {
+          expense.id = data.expense._id
+          setCloudSync(true)
+        }
+      } catch (error) {
+        console.error('保存费用失败:', error)
+      }
+    }
+
+    setExpenses([...expenses, expense])
+    setNewExpense({ category: 'food', amount: '', description: '' })
+    setAiAnalysis('') // 清除旧的分析
   }
 
-  const handleDeleteExpense = (id: string) => {
+  const handleDeleteExpense = async (id: string) => {
+    // 如果用户已登录，从云端删除
+    if (session && cloudSync) {
+      try {
+        await fetch(`/api/expenses?id=${id}`, {
+          method: 'DELETE',
+        })
+      } catch (error) {
+        console.error('删除费用失败:', error)
+      }
+    }
+
     setExpenses(expenses.filter(exp => exp.id !== id))
     setAiAnalysis('') // 清除旧的分析
   }
@@ -122,10 +207,32 @@ export default function BudgetManager({ totalBudget, language, translations: t }
   return (
     <Card className="shadow-xl">
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Wallet className="h-5 w-5 text-green-600" />
-          {t.budgetTitle}
-        </CardTitle>
+        <div className="flex items-center justify-between">
+          <CardTitle className="flex items-center gap-2">
+            <Wallet className="h-5 w-5 text-green-600" />
+            {t.budgetTitle}
+          </CardTitle>
+          {session && (
+            <div className="flex items-center gap-2 text-sm">
+              {syncing ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
+                  <span className="text-gray-500">同步中...</span>
+                </>
+              ) : cloudSync ? (
+                <>
+                  <Cloud className="h-4 w-4 text-green-600" />
+                  <span className="text-green-600">已同步</span>
+                </>
+              ) : (
+                <>
+                  <CloudOff className="h-4 w-4 text-gray-400" />
+                  <span className="text-gray-500">本地存储</span>
+                </>
+              )}
+            </div>
+          )}
+        </div>
         <CardDescription>{t.budgetDescription}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
