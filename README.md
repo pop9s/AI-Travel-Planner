@@ -60,8 +60,8 @@ npm run dev
 
 ### 后端
 - **API路由**: Next.js API Routes
-- **数据库**: MongoDB + Mongoose
-- **认证**: NextAuth.js
+- **数据库**: Supabase (PostgreSQL)
+- **认证**: Supabase Auth
 - **AI服务**: 阿里云通义千问 (Qwen)
 - **语音识别**: 科大讯飞 WebAPI
 
@@ -69,10 +69,11 @@ npm run dev
 
 ### 快速开始
 - 📖 [快速开始指南](QUICKSTART.md) - 5分钟快速上手
+- 🗄️ [Supabase 配置](SUPABASE_SETUP.md) - 数据库和认证配置（5分钟）🆕
 - 🔑 [通义千问配置](QWEN_SETUP.md) - API密钥获取和配置
 
 ### 核心功能
-- 👤 [用户管理系统](USER_SYSTEM.md) - 注册登录、云端同步完整指南 🆕
+- 👤 [用户管理系统](USER_SYSTEM.md) - 注册登录、云端同步完整指南
 - 💰 [费用预算管理](BUDGET_FEATURE.md) - 智能费用记录与 AI 预算分析
 - 🌍 [多语言功能](MULTILANG_FEATURE.md) - 多语言支持和语言检测
 
