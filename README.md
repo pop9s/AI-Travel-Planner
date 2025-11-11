@@ -138,6 +138,13 @@ NEXT_PUBLIC_IFLYTEK_API_SECRET=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 - ❌ 无法保存旅行计划
 - ❌ 无法记录费用
 - ❌ 数据库功能完全无法使用
+- 📖 **详细指南**：
+- [数据库初始化指南](DATABASE_SETUP.md) - **数据库表创建详细步骤（推荐）**
+- [Supabase 配置指南](SUPABASE_SETUP.md) - 完整的 Supabase 配置说明
+- 如果遇到以下错误，说明数据库表未创建：
+- 浏览器控制台错误：`relation "public.users" does not exist`
+- 用户注册失败：`table does not exist`
+- 无法保存数据：`permission denied` 或 `table not found`
 ```
 最终API配置如下：
 # 通义千问 API 密钥
