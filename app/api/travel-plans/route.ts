@@ -1,12 +1,9 @@
 /**
- * 旅行计划 CRUD API
+ * 旅行计划 CRUD API (使用 Supabase)
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
-import { connectDB } from '@/lib/db'
-import TravelPlan from '@/models/TravelPlan'
+import { createServerSupabaseClient, getSupabaseUser } from '@/lib/supabase-server'
 import { z } from 'zod'
 
 // 创建旅行计划验证
@@ -30,42 +27,43 @@ const createPlanSchema = z.object({
  */
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
+    const user = await getSupabaseUser()
     
-    if (!session?.user?.id) {
+    if (!user) {
       return NextResponse.json(
         { success: false, message: '未登录' },
         { status: 401 }
       )
     }
 
-    await connectDB()
-
+    const supabase = createServerSupabaseClient()
     const { searchParams } = new URL(request.url)
     const status = searchParams.get('status')
     const limit = parseInt(searchParams.get('limit') || '50')
     const skip = parseInt(searchParams.get('skip') || '0')
 
-    // 构建查询条件
-    const query: { userId: string; status?: string } = {
-      userId: session.user.id,
-    }
+    // 构建查询
+    let query = supabase
+      .from('travel_plans')
+      .select('*', { count: 'exact' })
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .range(skip, skip + limit - 1)
+
     if (status) {
-      query.status = status
+      query = query.eq('status', status)
     }
 
-    const plans = await TravelPlan.find(query)
-      .sort({ createdAt: -1 })
-      .limit(limit)
-      .skip(skip)
-      .lean()
+    const { data: plans, error, count } = await query
 
-    const total = await TravelPlan.countDocuments(query)
+    if (error) {
+      throw error
+    }
 
     return NextResponse.json({
       success: true,
-      plans,
-      total,
+      plans: plans || [],
+      total: count || 0,
       limit,
       skip,
     })
@@ -87,9 +85,9 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
+    const user = await getSupabaseUser()
     
-    if (!session?.user?.id) {
+    if (!user) {
       return NextResponse.json(
         { success: false, message: '未登录' },
         { status: 401 }
@@ -111,13 +109,40 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    await connectDB()
+    const supabase = createServerSupabaseClient()
+
+    // 转换字段名：驼峰 -> 蛇形
+    const planData = {
+      user_id: user.id,
+      title: validationResult.data.title,
+      destination: validationResult.data.destination,
+      start_date: validationResult.data.startDate,
+      end_date: validationResult.data.endDate,
+      duration: validationResult.data.duration,
+      travelers: validationResult.data.travelers,
+      budget: validationResult.data.budget,
+      interests: validationResult.data.interests,
+      special_requests: validationResult.data.specialRequests || null,
+      plan: validationResult.data.plan,
+      status: validationResult.data.status || 'draft',
+      language: validationResult.data.language || 'zh',
+    }
+
+    console.log('准备插入数据库:', planData)
 
     // 创建旅行计划
-    const plan = await TravelPlan.create({
-      userId: session.user.id,
-      ...validationResult.data,
-    })
+    const { data: plan, error } = await supabase
+      .from('travel_plans')
+      .insert(planData)
+      .select()
+      .single()
+
+    if (error) {
+      console.error('数据库插入错误:', error)
+      throw error
+    }
+
+    console.log('保存成功:', plan)
 
     return NextResponse.json(
       {
@@ -145,9 +170,9 @@ export async function POST(request: NextRequest) {
  */
 export async function DELETE(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
+    const user = await getSupabaseUser()
     
-    if (!session?.user?.id) {
+    if (!user) {
       return NextResponse.json(
         { success: false, message: '未登录' },
         { status: 401 }
@@ -164,18 +189,16 @@ export async function DELETE(request: NextRequest) {
       )
     }
 
-    await connectDB()
+    const supabase = createServerSupabaseClient()
 
-    const plan = await TravelPlan.findOneAndDelete({
-      _id: planId,
-      userId: session.user.id,
-    })
+    const { error } = await supabase
+      .from('travel_plans')
+      .delete()
+      .eq('id', planId)
+      .eq('user_id', user.id)
 
-    if (!plan) {
-      return NextResponse.json(
-        { success: false, message: '计划不存在或无权删除' },
-        { status: 404 }
-      )
+    if (error) {
+      throw error
     }
 
     return NextResponse.json({

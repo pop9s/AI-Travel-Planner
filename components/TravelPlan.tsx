@@ -7,9 +7,10 @@ import { Download, Share2, MapPin } from 'lucide-react'
 interface TravelPlanProps {
   plan: string
   destination: string
+  showCard?: boolean // 是否显示外层 Card
 }
 
-export default function TravelPlan({ plan, destination }: TravelPlanProps) {
+export default function TravelPlan({ plan, destination, showCard = true }: TravelPlanProps) {
   const handleDownload = () => {
     const blob = new Blob([plan], { type: 'text/plain;charset=utf-8' })
     const url = URL.createObjectURL(blob)
@@ -72,6 +73,49 @@ export default function TravelPlan({ plan, destination }: TravelPlanProps) {
     })
   }
 
+  const content = (
+    <div className="prose prose-sm max-w-none">
+      {formatPlan(plan)}
+    </div>
+  )
+
+  if (!showCard) {
+    return (
+      <div>
+        <div className="mb-4 pb-3 border-b">
+          <h2 className="flex items-center gap-2 text-xl font-bold text-gray-900">
+            <MapPin className="h-5 w-5 text-blue-600" />
+            {destination} 旅行计划
+          </h2>
+          <p className="text-sm text-gray-600 mt-1">
+            AI为您精心定制的专属旅行方案
+          </p>
+        </div>
+        {content}
+        <div className="flex gap-2 mt-6 pt-4 border-t">
+          <Button 
+            onClick={handleDownload} 
+            variant="outline" 
+            size="sm"
+            className="flex-1"
+          >
+            <Download className="mr-2 h-4 w-4" />
+            下载
+          </Button>
+          <Button 
+            onClick={handleShare} 
+            variant="outline"
+            size="sm"
+            className="flex-1"
+          >
+            <Share2 className="mr-2 h-4 w-4" />
+            分享
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <Card className="shadow-xl">
       <CardHeader className="bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-t-lg">
@@ -84,9 +128,7 @@ export default function TravelPlan({ plan, destination }: TravelPlanProps) {
         </CardDescription>
       </CardHeader>
       <CardContent className="pt-6">
-        <div className="prose prose-sm max-w-none">
-          {formatPlan(plan)}
-        </div>
+        {content}
         
         <div className="flex gap-3 mt-8 pt-6 border-t">
           <Button 

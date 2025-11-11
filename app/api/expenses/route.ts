@@ -1,17 +1,14 @@
 /**
- * 费用记录 API
+ * 费用记录 API - 使用 Supabase
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
-import { connectDB } from '@/lib/db'
-import Expense from '@/models/Expense'
+import { createServerSupabaseClient, getSupabaseUser } from '@/lib/supabase-server'
 import { z } from 'zod'
 
 // 创建费用记录验证
 const createExpenseSchema = z.object({
-  travelPlanId: z.string().optional(),
+  travel_plan_id: z.string().optional().nullable(),
   category: z.enum(['food', 'transport', 'accommodation', 'activity', 'shopping', 'other']),
   amount: z.number().min(0, '金额不能为负数'),
   currency: z.string().default('CNY'),
@@ -24,53 +21,50 @@ const createExpenseSchema = z.object({
  */
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
+    const user = await getSupabaseUser()
     
-    if (!session?.user?.id) {
+    if (!user) {
       return NextResponse.json(
         { success: false, message: '未登录' },
         { status: 401 }
       )
     }
 
-    await connectDB()
-
+    const supabase = createServerSupabaseClient()
     const { searchParams } = new URL(request.url)
     const travelPlanId = searchParams.get('travelPlanId')
     const category = searchParams.get('category')
     const limit = parseInt(searchParams.get('limit') || '100')
     const skip = parseInt(searchParams.get('skip') || '0')
 
-    // 构建查询条件
-    const query: {
-      userId: string
-      travelPlanId?: string
-      category?: string
-    } = {
-      userId: session.user.id,
-    }
+    // 构建查询
+    let query = supabase
+      .from('expenses')
+      .select('*', { count: 'exact' })
+      .eq('user_id', user.id)
+      .order('date', { ascending: false })
+      .range(skip, skip + limit - 1)
+
     if (travelPlanId) {
-      query.travelPlanId = travelPlanId
+      query = query.eq('travel_plan_id', travelPlanId)
     }
     if (category) {
-      query.category = category
+      query = query.eq('category', category)
     }
 
-    const expenses = await Expense.find(query)
-      .sort({ date: -1 })
-      .limit(limit)
-      .skip(skip)
-      .lean()
+    const { data: expenses, error, count } = await query
 
-    const total = await Expense.countDocuments(query)
+    if (error) {
+      throw error
+    }
 
     // 计算总金额
-    const totalAmount = expenses.reduce((sum, expense) => sum + expense.amount, 0)
+    const totalAmount = (expenses || []).reduce((sum, expense) => sum + expense.amount, 0)
 
     return NextResponse.json({
       success: true,
-      expenses,
-      total,
+      expenses: expenses || [],
+      total: count || 0,
       totalAmount,
       limit,
       skip,
@@ -93,9 +87,9 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
+    const user = await getSupabaseUser()
     
-    if (!session?.user?.id) {
+    if (!user) {
       return NextResponse.json(
         { success: false, message: '未登录' },
         { status: 401 }
@@ -117,14 +111,22 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    await connectDB()
+    const supabase = createServerSupabaseClient()
 
     // 创建费用记录
-    const expense = await Expense.create({
-      userId: session.user.id,
-      ...validationResult.data,
-      date: validationResult.data.date ? new Date(validationResult.data.date) : new Date(),
-    })
+    const { data: expense, error } = await supabase
+      .from('expenses')
+      .insert({
+        user_id: user.id,
+        ...validationResult.data,
+        date: validationResult.data.date || new Date().toISOString(),
+      })
+      .select()
+      .single()
+
+    if (error) {
+      throw error
+    }
 
     return NextResponse.json(
       {
@@ -152,9 +154,9 @@ export async function POST(request: NextRequest) {
  */
 export async function DELETE(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
+    const user = await getSupabaseUser()
     
-    if (!session?.user?.id) {
+    if (!user) {
       return NextResponse.json(
         { success: false, message: '未登录' },
         { status: 401 }
@@ -171,18 +173,16 @@ export async function DELETE(request: NextRequest) {
       )
     }
 
-    await connectDB()
+    const supabase = createServerSupabaseClient()
 
-    const expense = await Expense.findOneAndDelete({
-      _id: expenseId,
-      userId: session.user.id,
-    })
+    const { error } = await supabase
+      .from('expenses')
+      .delete()
+      .eq('id', expenseId)
+      .eq('user_id', user.id)
 
-    if (!expense) {
-      return NextResponse.json(
-        { success: false, message: '费用记录不存在或无权删除' },
-        { status: 404 }
-      )
+    if (error) {
+      throw error
     }
 
     return NextResponse.json({
@@ -201,4 +201,3 @@ export async function DELETE(request: NextRequest) {
     )
   }
 }
-

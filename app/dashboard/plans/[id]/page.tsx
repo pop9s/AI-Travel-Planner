@@ -5,35 +5,39 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useSession } from 'next-auth/react'
+import { useSupabaseSession } from '@/hooks/useSupabaseAuth'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import TravelPlan from '@/components/TravelPlan'
-import { ArrowLeft, Calendar, Users, Wallet, MapPin, Loader2, Edit } from 'lucide-react'
+import MapView from '@/components/MapView'
+import { ArrowLeft, Calendar, Users, Wallet, MapPin, Loader2, Edit, Map } from 'lucide-react'
 
 interface PlanData {
-  _id: string
+  id: string // Supabase 使用 id
   title: string
   destination: string
-  startDate: string
-  endDate: string
+  start_date: string // Supabase 蛇形命名
+  end_date: string
   duration: number
   travelers: number
   budget: number
   interests: string
-  specialRequests: string
+  special_requests: string
   plan: string
   status: string
-  createdAt: string
+  created_at: string // Supabase 蛇形命名
 }
 
 export default function PlanDetailPage({ params }: { params: { id: string } }) {
-  const { status } = useSession()
+  const { status } = useSupabaseSession()
   const router = useRouter()
   const [plan, setPlan] = useState<PlanData | null>(null)
   const [loading, setLoading] = useState(true)
+  const [showMap, setShowMap] = useState(true)
+  const [mapCenter, setMapCenter] = useState<[number, number]>([116.397428, 39.90923])
+  const [destinationCoords, setDestinationCoords] = useState<{ lng: number; lat: number } | null>(null)
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -43,6 +47,13 @@ export default function PlanDetailPage({ params }: { params: { id: string } }) {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status, router, params.id])
+
+  // 获取目的地坐标
+  useEffect(() => {
+    if (plan?.destination) {
+      fetchDestinationCoords(plan.destination)
+    }
+  }, [plan?.destination])
 
   const fetchPlan = async () => {
     try {
@@ -60,6 +71,24 @@ export default function PlanDetailPage({ params }: { params: { id: string } }) {
       router.push('/dashboard')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const fetchDestinationCoords = async (destination: string) => {
+    try {
+      const response = await fetch(`/api/geocode?address=${encodeURIComponent(destination)}`)
+      const data = await response.json()
+
+      if (data.success && data.location) {
+        const coords = { lng: data.location.lng, lat: data.location.lat }
+        setDestinationCoords(coords)
+        setMapCenter([coords.lng, coords.lat])
+        console.log('✅ 目的地坐标:', coords)
+      } else {
+        console.warn('⚠️ 未找到目的地坐标，使用默认位置')
+      }
+    } catch (error) {
+      console.error('❌ 获取坐标失败:', error)
     }
   }
 
@@ -118,7 +147,7 @@ export default function PlanDetailPage({ params }: { params: { id: string } }) {
                   <Calendar className="h-5 w-5 text-blue-600" />
                   <div>
                     <p className="text-sm text-gray-600">出发日期</p>
-                    <p className="font-medium">{new Date(plan.startDate).toLocaleDateString('zh-CN')}</p>
+                    <p className="font-medium">{new Date(plan.start_date).toLocaleDateString('zh-CN')}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
@@ -151,14 +180,49 @@ export default function PlanDetailPage({ params }: { params: { id: string } }) {
                 </div>
               )}
 
-              {plan.specialRequests && (
+              {plan.special_requests && (
                 <div className="mt-4 p-3 bg-purple-50 rounded-lg">
                   <p className="text-sm text-gray-600 mb-1">特殊要求</p>
-                  <p className="font-medium">{plan.specialRequests}</p>
+                  <p className="font-medium">{plan.special_requests}</p>
                 </div>
               )}
             </CardContent>
           </Card>
+
+          {/* Map Toggle Button */}
+          <div className="flex justify-end">
+            <Button
+              variant={showMap ? 'default' : 'outline'}
+              onClick={() => setShowMap(!showMap)}
+              className="gap-2"
+            >
+              <Map className="h-4 w-4" />
+              {showMap ? '隐藏地图' : '显示地图'}
+            </Button>
+          </div>
+
+          {/* Map View */}
+          {showMap && (
+            <MapView
+              locations={
+                destinationCoords
+                  ? [
+                      {
+                        name: plan.destination,
+                        address: plan.destination,
+                        lng: destinationCoords.lng,
+                        lat: destinationCoords.lat,
+                        type: 'destination',
+                      },
+                    ]
+                  : []
+              }
+              center={mapCenter}
+              zoom={12}
+              enableSearch={true}
+              enableNavigation={true}
+            />
+          )}
 
           {/* Travel Plan Content */}
           <TravelPlan plan={plan.plan} destination={plan.destination} />

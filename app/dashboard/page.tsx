@@ -5,7 +5,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useSession } from 'next-auth/react'
+import { useSupabaseSession } from '@/hooks/useSupabaseAuth'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -27,19 +27,19 @@ import {
 } from 'lucide-react'
 
 interface TravelPlan {
-  _id: string
+  id: string // Supabase 使用 id
   title: string
   destination: string
-  startDate: string
+  start_date: string // Supabase 蛇形命名
   duration: number
   travelers: number
   budget: number
   status: 'draft' | 'confirmed' | 'completed' | 'cancelled'
-  createdAt: string
+  created_at: string // Supabase 蛇形命名
 }
 
 export default function DashboardPage() {
-  const { data: session, status } = useSession()
+  const { data: session, status } = useSupabaseSession()
   const router = useRouter()
   const [plans, setPlans] = useState<TravelPlan[]>([])
   const [loading, setLoading] = useState(true)
@@ -78,7 +78,7 @@ export default function DashboardPage() {
       })
 
       if (response.ok) {
-        setPlans(plans.filter(p => p._id !== planId))
+        setPlans(plans.filter(p => p.id !== planId))
       }
     } catch (error) {
       console.error('删除失败:', error)
@@ -164,7 +164,7 @@ export default function DashboardPage() {
         ) : (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {plans.map((plan) => (
-              <Card key={plan._id} className="hover:shadow-xl transition-shadow">
+              <Card key={plan.id} className="hover:shadow-xl transition-shadow">
                 <CardHeader>
                   <div className="flex items-start justify-between mb-2">
                     <CardTitle className="text-lg">{plan.title}</CardTitle>
@@ -179,7 +179,7 @@ export default function DashboardPage() {
                   <div className="grid grid-cols-2 gap-3 text-sm">
                     <div className="flex items-center gap-2 text-gray-600">
                       <Calendar className="h-4 w-4" />
-                      <span>{new Date(plan.startDate).toLocaleDateString('zh-CN')}</span>
+                      <span>{new Date(plan.start_date).toLocaleDateString('zh-CN')}</span>
                     </div>
                     <div className="flex items-center gap-2 text-gray-600">
                       <Clock className="h-4 w-4" />
@@ -196,7 +196,7 @@ export default function DashboardPage() {
                   </div>
 
                   <div className="flex gap-2 pt-2 border-t">
-                    <Link href={`/dashboard/plans/${plan._id}`} className="flex-1">
+                    <Link href={`/dashboard/plans/${plan.id}`} className="flex-1">
                       <Button variant="outline" size="sm" className="w-full">
                         <Eye className="h-4 w-4 mr-2" />
                         查看
@@ -205,11 +205,11 @@ export default function DashboardPage() {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => handleDelete(plan._id)}
-                      disabled={deleting === plan._id}
+                      onClick={() => handleDelete(plan.id)}
+                      disabled={deleting === plan.id}
                       className="text-red-600 hover:text-red-700 hover:bg-red-50"
                     >
-                      {deleting === plan._id ? (
+                      {deleting === plan.id ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
                       ) : (
                         <Trash2 className="h-4 w-4" />

@@ -5,7 +5,7 @@
 'use client'
 
 import { useState } from 'react'
-import { signIn } from 'next-auth/react'
+import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -44,21 +44,59 @@ export default function AuthModal({ isOpen, onClose, defaultMode = 'signin' }: A
     setError('')
 
     try {
-      const result = await signIn('credentials', {
+      const { data, error } = await supabase.auth.signInWithPassword({
         email: formData.email,
         password: formData.password,
-        redirect: false,
       })
 
-      if (result?.error) {
-        setError(result.error)
-      } else if (result?.ok) {
-        router.refresh()
-        onClose()
+      if (error) {
+        setError(error.message === 'Invalid login credentials' ? '邮箱或密码错误' : error.message)
+        setLoading(false)
+        return
+      }
+
+      if (data.user && data.session) {
+        // 登录成功，等待认证状态更新
+        // 使用 Promise 等待 onAuthStateChange 事件触发
+        const waitForAuthState = new Promise<void>((resolve) => {
+          const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+            if (event === 'SIGNED_IN') {
+              subscription.unsubscribe()
+              resolve()
+            }
+          })
+          
+          // 超时保护：如果 2 秒内没有触发事件，仍然继续
+          setTimeout(() => {
+            subscription.unsubscribe()
+            resolve()
+          }, 2000)
+        })
+        
+        await waitForAuthState
+        
+        // 确保 session 已更新
+        const { data: { session } } = await supabase.auth.getSession()
+        if (session?.user) {
+          // 刷新页面以更新所有组件状态
+          router.refresh()
+          // 短暂延迟后关闭模态框，确保状态已更新
+          setTimeout(() => {
+            onClose()
+          }, 200)
+        } else {
+          // Session 未更新，但仍然关闭模态框并刷新
+          console.warn('Session 未更新，强制刷新')
+          router.refresh()
+          onClose()
+        }
+      } else {
+        setError('登录失败，请稍后再试')
+        setLoading(false)
       }
     } catch (err) {
+      console.error('登录错误:', err)
       setError('登录失败，请稍后再试')
-    } finally {
       setLoading(false)
     }
   }
@@ -69,33 +107,62 @@ export default function AuthModal({ isOpen, onClose, defaultMode = 'signin' }: A
     setError('')
 
     try {
-      const response = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+      const { data, error } = await supabase.auth.signUp({
+        email: formData.email,
+        password: formData.password,
+        options: {
+          data: {
+            name: formData.name,
+          },
+        },
       })
 
-      const data = await response.json()
-
-      if (!response.ok) {
-        setError(data.message || '注册失败')
+      if (error) {
+        if (error.message.includes('already registered')) {
+          setError('该邮箱已被注册')
+        } else {
+          setError(error.message)
+        }
+        setLoading(false)
         return
       }
 
-      // 注册成功后自动登录
-      const signInResult = await signIn('credentials', {
-        email: formData.email,
-        password: formData.password,
-        redirect: false,
-      })
-
-      if (signInResult?.ok) {
-        router.refresh()
-        onClose()
+      if (data.user) {
+        // 注册成功，Supabase 会自动登录
+        // 等待认证状态更新
+        const waitForAuthState = new Promise<void>((resolve) => {
+          const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+            if (event === 'SIGNED_IN') {
+              subscription.unsubscribe()
+              resolve()
+            }
+          })
+          
+          // 超时保护
+          setTimeout(() => {
+            subscription.unsubscribe()
+            resolve()
+          }, 2000)
+        })
+        
+        await waitForAuthState
+        
+        // 确保 session 已更新
+        const { data: { session } } = await supabase.auth.getSession()
+        if (session?.user) {
+          router.refresh()
+          setTimeout(() => {
+            onClose()
+          }, 200)
+        } else {
+          console.warn('Session 未更新，强制刷新')
+          router.refresh()
+          onClose()
+        }
       }
     } catch (err) {
+      console.error('注册错误:', err)
       setError('注册失败，请稍后再试')
-    } finally {
       setLoading(false)
     }
   }

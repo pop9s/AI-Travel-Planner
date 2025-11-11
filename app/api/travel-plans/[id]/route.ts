@@ -1,25 +1,22 @@
 /**
- * 单个旅行计划 API (获取详情、更新)
+ * 单个旅行计划 API (获取详情、更新) - 使用 Supabase
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
-import { connectDB } from '@/lib/db'
-import TravelPlan from '@/models/TravelPlan'
+import { createServerSupabaseClient, getSupabaseUser } from '@/lib/supabase-server'
 import { z } from 'zod'
 
 // 更新旅行计划验证
 const updatePlanSchema = z.object({
   title: z.string().min(1).max(200).optional(),
   destination: z.string().min(1).optional(),
-  startDate: z.string().optional(),
-  endDate: z.string().optional(),
+  start_date: z.string().optional(),
+  end_date: z.string().optional(),
   duration: z.number().min(1).optional(),
   travelers: z.number().min(1).optional(),
   budget: z.number().min(0).optional(),
   interests: z.string().min(1).optional(),
-  specialRequests: z.string().optional(),
+  special_requests: z.string().optional(),
   plan: z.string().optional(),
   status: z.enum(['draft', 'confirmed', 'completed', 'cancelled']).optional(),
 })
@@ -32,23 +29,25 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const session = await getServerSession(authOptions)
+    const user = await getSupabaseUser()
     
-    if (!session?.user?.id) {
+    if (!user) {
       return NextResponse.json(
         { success: false, message: '未登录' },
         { status: 401 }
       )
     }
 
-    await connectDB()
+    const supabase = createServerSupabaseClient()
 
-    const plan = await TravelPlan.findOne({
-      _id: params.id,
-      userId: session.user.id,
-    }).lean()
+    const { data: plan, error } = await supabase
+      .from('travel_plans')
+      .select('*')
+      .eq('id', params.id)
+      .eq('user_id', user.id)
+      .single()
 
-    if (!plan) {
+    if (error || !plan) {
       return NextResponse.json(
         { success: false, message: '计划不存在或无权访问' },
         { status: 404 }
@@ -80,9 +79,9 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   try {
-    const session = await getServerSession(authOptions)
+    const user = await getSupabaseUser()
     
-    if (!session?.user?.id) {
+    if (!user) {
       return NextResponse.json(
         { success: false, message: '未登录' },
         { status: 401 }
@@ -104,18 +103,17 @@ export async function PATCH(
       )
     }
 
-    await connectDB()
+    const supabase = createServerSupabaseClient()
 
-    const plan = await TravelPlan.findOneAndUpdate(
-      {
-        _id: params.id,
-        userId: session.user.id,
-      },
-      { $set: validationResult.data },
-      { new: true, runValidators: true }
-    )
+    const { data: plan, error } = await supabase
+      .from('travel_plans')
+      .update(validationResult.data)
+      .eq('id', params.id)
+      .eq('user_id', user.id)
+      .select()
+      .single()
 
-    if (!plan) {
+    if (error || !plan) {
       return NextResponse.json(
         { success: false, message: '计划不存在或无权修改' },
         { status: 404 }
@@ -139,4 +137,3 @@ export async function PATCH(
     )
   }
 }
-

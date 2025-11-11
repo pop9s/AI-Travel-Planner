@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useSession } from 'next-auth/react'
+import { useSupabaseSession } from '@/hooks/useSupabaseAuth'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -23,6 +23,7 @@ interface BudgetManagerProps {
   totalBudget: number
   language: Language
   travelPlanId?: string
+  showCard?: boolean // 是否显示外层 Card
   translations: {
     budgetTitle: string
     budgetDescription: string
@@ -46,8 +47,8 @@ interface BudgetManagerProps {
   }
 }
 
-export default function BudgetManager({ totalBudget, language, travelPlanId, translations: t }: BudgetManagerProps) {
-  const { data: session } = useSession()
+export default function BudgetManager({ totalBudget, language, travelPlanId, showCard = true, translations: t }: BudgetManagerProps) {
+  const { data: session } = useSupabaseSession()
   const [expenses, setExpenses] = useState<Expense[]>([])
   const [newExpense, setNewExpense] = useState({
     category: 'food',
@@ -80,23 +81,26 @@ export default function BudgetManager({ totalBudget, language, travelPlanId, tra
       const data = await response.json()
 
       if (data.success && data.expenses) {
+        // Supabase 返回的字段名
         setExpenses(data.expenses.map((exp: {
-          _id: string
+          id: string
           category: string
           amount: number
           description: string
           date: string
         }) => ({
-          id: exp._id,
+          id: exp.id,
           category: exp.category,
           amount: exp.amount,
           description: exp.description,
           date: exp.date,
         })))
         setCloudSync(true)
+        console.log('✅ 成功从云端加载', data.expenses.length, '条费用记录')
       }
     } catch (error) {
-      console.error('加载费用记录失败:', error)
+      console.error('❌ 加载费用记录失败:', error)
+      setCloudSync(false)
     } finally {
       setSyncing(false)
     }
@@ -120,11 +124,12 @@ export default function BudgetManager({ totalBudget, language, travelPlanId, tra
     // 如果用户已登录，同步到云端
     if (session) {
       try {
+        setSyncing(true)
         const response = await fetch('/api/expenses', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            travelPlanId,
+            travel_plan_id: travelPlanId || null, // 使用蛇形命名
             category: expense.category,
             amount: expense.amount,
             description: expense.description,
@@ -134,11 +139,16 @@ export default function BudgetManager({ totalBudget, language, travelPlanId, tra
 
         const data = await response.json()
         if (data.success && data.expense) {
-          expense.id = data.expense._id
+          expense.id = data.expense.id // Supabase 返回 id 而不是 _id
           setCloudSync(true)
+          console.log('✅ 费用已保存到云端:', expense.description)
+        } else {
+          console.error('❌ 保存费用失败:', data.message)
         }
       } catch (error) {
-        console.error('保存费用失败:', error)
+        console.error('❌ 保存费用失败:', error)
+      } finally {
+        setSyncing(false)
       }
     }
 
@@ -151,11 +161,20 @@ export default function BudgetManager({ totalBudget, language, travelPlanId, tra
     // 如果用户已登录，从云端删除
     if (session && cloudSync) {
       try {
-        await fetch(`/api/expenses?id=${id}`, {
+        setSyncing(true)
+        const response = await fetch(`/api/expenses?id=${id}`, {
           method: 'DELETE',
         })
+        const data = await response.json()
+        if (data.success) {
+          console.log('✅ 费用已从云端删除')
+        } else {
+          console.error('❌ 删除费用失败:', data.message)
+        }
       } catch (error) {
-        console.error('删除费用失败:', error)
+        console.error('❌ 删除费用失败:', error)
+      } finally {
+        setSyncing(false)
       }
     }
 
@@ -204,38 +223,8 @@ export default function BudgetManager({ totalBudget, language, travelPlanId, tra
     return categoryMap[category] || category
   }
 
-  return (
-    <Card className="shadow-xl">
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center gap-2">
-            <Wallet className="h-5 w-5 text-green-600" />
-            {t.budgetTitle}
-          </CardTitle>
-          {session && (
-            <div className="flex items-center gap-2 text-sm">
-              {syncing ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
-                  <span className="text-gray-500">同步中...</span>
-                </>
-              ) : cloudSync ? (
-                <>
-                  <Cloud className="h-4 w-4 text-green-600" />
-                  <span className="text-green-600">已同步</span>
-                </>
-              ) : (
-                <>
-                  <CloudOff className="h-4 w-4 text-gray-400" />
-                  <span className="text-gray-500">本地存储</span>
-                </>
-              )}
-            </div>
-          )}
-        </div>
-        <CardDescription>{t.budgetDescription}</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-6">
+  const content = (
+    <div className="space-y-6">
         {/* 预算概览 */}
         <div className="space-y-4">
           <div className="grid grid-cols-3 gap-4">
@@ -358,44 +347,92 @@ export default function BudgetManager({ totalBudget, language, travelPlanId, tra
             </div>
           </div>
 
-          <Button onClick={handleAddExpense} className="w-full" disabled={!newExpense.amount}>
-            <Plus className="h-4 w-4 mr-2" />
-            {t.addExpense}
-          </Button>
+          <div className="space-y-2">
+            <Button 
+              onClick={handleAddExpense} 
+              className="w-full" 
+              disabled={!newExpense.amount || syncing}
+              size="lg"
+            >
+              {syncing ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  保存中...
+                </>
+              ) : (
+                <>
+                  <Plus className="h-4 w-4 mr-2" />
+                  {session ? '添加并保存到云端' : t.addExpense}
+                </>
+              )}
+            </Button>
+            {session && !syncing && (
+              <p className="text-xs text-center text-gray-500">
+                💾 费用将自动保存到云端，可在多设备查看
+              </p>
+            )}
+            {!session && (
+              <p className="text-xs text-center text-gray-500">
+                💡 登录后费用将自动同步到云端
+              </p>
+            )}
+          </div>
         </div>
 
         {/* 费用列表 */}
-        <div className="space-y-2">
-          {expenses.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">{t.noExpenses}</div>
-          ) : (
-            expenses.map((expense) => (
-              <div
-                key={expense.id}
-                className="flex items-center justify-between p-3 bg-white border rounded-lg hover:shadow-md transition-shadow"
-              >
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium">{getCategoryName(expense.category)}</span>
-                    <span className="text-lg font-bold text-gray-900">¥{expense.amount.toLocaleString()}</span>
-                  </div>
-                  {expense.description && (
-                    <div className="text-sm text-gray-600">{expense.description}</div>
-                  )}
-                  <div className="text-xs text-gray-400">
-                    {new Date(expense.date).toLocaleString('zh-CN')}
-                  </div>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleDeleteExpense(expense.id)}
-                  className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold flex items-center gap-2">
+              📋 已记录的费用
+              {expenses.length > 0 && (
+                <span className="text-sm font-normal text-gray-500">
+                  ({expenses.length} 条)
+                </span>
+              )}
+            </h3>
+            {session && expenses.length > 0 && (
+              <div className="text-xs text-gray-500">
+                {cloudSync ? '✅ 已保存到云端' : '💾 本地存储'}
               </div>
-            ))
+            )}
+          </div>
+          
+          {expenses.length === 0 ? (
+            <div className="text-center py-12 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+              <div className="text-4xl mb-2">💸</div>
+              <p className="text-gray-600 font-medium mb-1">还没有费用记录</p>
+              <p className="text-sm text-gray-500">添加您的第一笔费用开始记账吧</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {expenses.map((expense) => (
+                <div
+                  key={expense.id}
+                  className="flex items-center justify-between p-3 bg-white border rounded-lg hover:shadow-md transition-shadow"
+                >
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">{getCategoryName(expense.category)}</span>
+                      <span className="text-lg font-bold text-gray-900">¥{expense.amount.toLocaleString()}</span>
+                    </div>
+                    {expense.description && (
+                      <div className="text-sm text-gray-600">{expense.description}</div>
+                    )}
+                    <div className="text-xs text-gray-400">
+                      {new Date(expense.date).toLocaleString('zh-CN')}
+                    </div>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleDeleteExpense(expense.id)}
+                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+            </div>
           )}
         </div>
 
@@ -433,6 +470,46 @@ export default function BudgetManager({ totalBudget, language, travelPlanId, tra
             )}
           </div>
         )}
+    </div>
+  )
+
+  if (!showCard) {
+    return content
+  }
+
+  return (
+    <Card className="shadow-xl">
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <CardTitle className="flex items-center gap-2">
+            <Wallet className="h-5 w-5 text-green-600" />
+            {t.budgetTitle}
+          </CardTitle>
+          {session && (
+            <div className="flex items-center gap-2 text-sm">
+              {syncing ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
+                  <span className="text-gray-500">同步中...</span>
+                </>
+              ) : cloudSync ? (
+                <>
+                  <Cloud className="h-4 w-4 text-green-600" />
+                  <span className="text-green-600">已同步</span>
+                </>
+              ) : (
+                <>
+                  <CloudOff className="h-4 w-4 text-gray-400" />
+                  <span className="text-gray-500">本地存储</span>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+        <CardDescription>{t.budgetDescription}</CardDescription>
+      </CardHeader>
+      <CardContent>
+        {content}
       </CardContent>
     </Card>
   )

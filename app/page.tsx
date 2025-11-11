@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useSession } from 'next-auth/react'
+import { useSupabaseSession } from '@/hooks/useSupabaseAuth'
 import { Plane, MapPin, Calendar, Users, Wallet, Sparkles, Loader2, Save, CheckCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -14,6 +14,7 @@ import VoiceInput from '@/components/VoiceInput'
 import BudgetManager from '@/components/BudgetManager'
 import UserMenu from '@/components/UserMenu'
 import AuthModal from '@/components/AuthModal'
+import MapView from '@/components/MapView'
 import { Language, detectFormLanguage } from '@/lib/languageDetection'
 import { getTranslations } from '@/lib/i18n'
 
@@ -156,7 +157,7 @@ function formatDate(date: Date): string {
 }
 
 export default function Home() {
-  const { data: session } = useSession()
+  const { data: session } = useSupabaseSession()
   const [formData, setFormData] = useState<TravelFormData>({
     destination: '',
     duration: '',
@@ -175,6 +176,10 @@ export default function Home() {
   const [showAuthModal, setShowAuthModal] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [savedPlanId, setSavedPlanId] = useState<string | null>(null)
+  const [showMap, setShowMap] = useState(false)
+  const [mapLocations, setMapLocations] = useState<Array<{ name: string; address: string; lng: number; lat: number }>>([])
+  const [destinationCoords, setDestinationCoords] = useState<{ lng: number; lat: number } | null>(null)
 
   // 获取翻译文本
   const t = getTranslations(selectedLanguage === 'auto' ? detectedLanguage : selectedLanguage)
@@ -220,10 +225,40 @@ export default function Home() {
 
       const data = await response.json()
       setTravelPlan(data.plan)
+      
+      // 生成计划后，自动获取目的地坐标并显示地图
+      if (formData.destination) {
+        fetchDestinationCoords(formData.destination)
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : t.errorTitle)
     } finally {
       setLoading(false)
+    }
+  }
+
+  // 获取目的地坐标
+  const fetchDestinationCoords = async (destination: string) => {
+    try {
+      const response = await fetch(`/api/geocode?address=${encodeURIComponent(destination)}`)
+      const data = await response.json()
+
+      if (data.success && data.location) {
+        const coords = { lng: data.location.lng, lat: data.location.lat }
+        setDestinationCoords(coords)
+        setMapLocations([{
+          name: destination,
+          address: data.location.formattedAddress || destination,
+          lng: coords.lng,
+          lat: coords.lat,
+        }])
+        setShowMap(true)
+        console.log('✅ 目的地坐标:', coords)
+      } else {
+        console.warn('⚠️ 未找到目的地坐标')
+      }
+    } catch (error) {
+      console.error('❌ 获取坐标失败:', error)
     }
   }
 
@@ -270,6 +305,11 @@ export default function Home() {
 
       if (data.success) {
         setSaved(true)
+        // 保存计划 ID，用于费用管理的云端同步
+        if (data.plan && data.plan.id) {
+          setSavedPlanId(data.plan.id)
+          console.log('✅ 旅行计划已保存，ID:', data.plan.id)
+        }
         setTimeout(() => setSaved(false), 3000)
       } else {
         alert(data.message || '保存失败')
@@ -317,22 +357,67 @@ export default function Home() {
       />
 
       {/* Hero Section */}
-      <section className="container mx-auto px-4 py-12 text-center">
-        <div className="max-w-3xl mx-auto space-y-4">
-          <h2 className="text-4xl md:text-5xl font-bold text-gray-900">
+      <section className="container mx-auto px-4 py-8 text-center">
+        <div className="max-w-3xl mx-auto space-y-2">
+          <h2 className="text-3xl md:text-4xl font-bold text-gray-900">
             {t.heroTitle}
           </h2>
-          <p className="text-lg text-gray-600">
+          <p className="text-base text-gray-600">
             {t.heroDescription}
           </p>
         </div>
       </section>
 
-      {/* Main Content */}
+      {/* Four Components Layout - 2x2 Grid */}
       <section className="container mx-auto px-4 pb-16">
-        <div className="grid lg:grid-cols-2 gap-8 max-w-7xl mx-auto">
-          {/* Form Section */}
-          <Card className="shadow-xl">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-[1600px] mx-auto">
+          {/* Component 1: Map Navigation */}
+          <Card className="shadow-xl border-2 border-blue-100 flex flex-col h-full">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <MapPin className="h-5 w-5 text-blue-600" />
+                  🗺️ 地图导航
+                </CardTitle>
+                <Button
+                  variant={showMap ? "default" : "outline"}
+                  onClick={() => setShowMap(!showMap)}
+                  size="sm"
+                  className="h-8"
+                >
+                  {showMap ? '隐藏' : '显示'}
+                </Button>
+              </div>
+              <CardDescription className="text-xs mt-1">
+                搜索地点、规划路线
+              </CardDescription>
+            </CardHeader>
+            {showMap && (
+              <CardContent className="pt-0 flex-1 flex flex-col min-h-0">
+                <MapView
+                  locations={mapLocations}
+                  center={destinationCoords ? [destinationCoords.lng, destinationCoords.lat] : undefined}
+                  zoom={12}
+                  enableSearch={true}
+                  enableNavigation={true}
+                  className="h-full space-y-4"
+                />
+              </CardContent>
+            )}
+            {!showMap && (
+              <CardContent className="pt-0 flex-1 flex items-center justify-center">
+                <div className="text-center py-8">
+                  <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-blue-100 mb-3">
+                    <MapPin className="h-8 w-8 text-blue-600" />
+                  </div>
+                  <p className="text-sm text-gray-600">点击"显示"查看地图</p>
+                </div>
+              </CardContent>
+            )}
+          </Card>
+
+          {/* Component 2: Travel Plan Form */}
+          <Card className="shadow-xl flex flex-col h-full">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Sparkles className="h-5 w-5 text-purple-600" />
@@ -342,7 +427,7 @@ export default function Home() {
                 {t.formDescription}
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="flex-1 overflow-y-auto">
               <form onSubmit={handleSubmit} className="space-y-6">
                 <div className="space-y-2">
                   <Label htmlFor="destination" className="flex items-center gap-2">
@@ -576,98 +661,120 @@ export default function Home() {
             </CardContent>
           </Card>
 
-          {/* Result Section */}
-          <div className="lg:sticky lg:top-24 h-fit space-y-4">
-            {travelPlan ? (
-              <>
-                {/* Save Button */}
-                {session && (
-                  <Card className="shadow-xl">
-                    <CardContent className="pt-6">
-                      <Button
-                        onClick={handleSavePlan}
-                        disabled={saving || saved}
-                        className="w-full"
-                        variant={saved ? "outline" : "default"}
-                      >
-                        {saving ? (
-                          <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            保存中...
-                          </>
-                        ) : saved ? (
-                          <>
-                            <CheckCircle className="mr-2 h-4 w-4 text-green-600" />
-                            已保存
-                          </>
-                        ) : (
-                          <>
-                            <Save className="mr-2 h-4 w-4" />
-                            保存计划
-                          </>
-                        )}
-                      </Button>
-                    </CardContent>
-                  </Card>
-                )}
-                <TravelPlan plan={travelPlan} destination={formData.destination} />
-              </>
-            ) : (
-              <Card className="shadow-xl">
-                <CardHeader>
-                  <CardTitle>{t.resultTitle}</CardTitle>
-                  <CardDescription>
-                    {t.resultDescription}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex flex-col items-center justify-center py-12 text-center space-y-4">
-                    <div className="bg-gradient-to-br from-blue-100 to-purple-100 p-6 rounded-full">
-                      <Plane className="h-12 w-12 text-blue-600" />
-                    </div>
-                    <p className="text-gray-500 max-w-sm">
-                      {t.resultPlaceholder}
-                    </p>
+          {/* Component 3: Travel Plan Result */}
+          <Card className="shadow-xl flex flex-col h-full">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <Plane className="h-5 w-5 text-purple-600" />
+                {t.resultTitle}
+              </CardTitle>
+              <CardDescription className="text-xs">
+                {t.resultDescription}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="pt-0 flex-1 flex flex-col min-h-0">
+              {travelPlan ? (
+                <div className="space-y-4 flex flex-col flex-1 min-h-0">
+                  {/* Save Button */}
+                  {session && (
+                    <Button
+                      onClick={handleSavePlan}
+                      disabled={saving || saved}
+                      className="w-full"
+                      variant={saved ? "outline" : "default"}
+                      size="sm"
+                    >
+                      {saving ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          保存中...
+                        </>
+                      ) : saved ? (
+                        <>
+                          <CheckCircle className="mr-2 h-4 w-4 text-green-600" />
+                          已保存
+                        </>
+                      ) : (
+                        <>
+                          <Save className="mr-2 h-4 w-4" />
+                          保存计划
+                        </>
+                      )}
+                    </Button>
+                  )}
+                  <div className="flex-1 overflow-y-auto">
+                    <TravelPlan plan={travelPlan} destination={formData.destination} showCard={false} />
                   </div>
-                </CardContent>
-              </Card>
-            )}
-          </div>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-12 text-center space-y-4 flex-1">
+                  <div className="bg-gradient-to-br from-blue-100 to-purple-100 p-4 rounded-full">
+                    <Plane className="h-10 w-10 text-blue-600" />
+                  </div>
+                  <p className="text-sm text-gray-500">
+                    {t.resultPlaceholder}
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Component 4: Budget Manager */}
+          <Card className="shadow-xl flex flex-col h-full">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <Wallet className="h-5 w-5 text-green-600" />
+                费用预算
+              </CardTitle>
+              <CardDescription className="text-xs">
+                记录开销、AI分析
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="pt-0 flex-1 flex flex-col min-h-0">
+              {formData.budget && parseFloat(formData.budget) > 0 ? (
+                <div className="flex-1 overflow-y-auto">
+                  <BudgetManager
+                    totalBudget={parseFloat(formData.budget)}
+                    language={selectedLanguage === 'auto' ? detectedLanguage : selectedLanguage}
+                    travelPlanId={savedPlanId || undefined}
+                    showCard={false}
+                    translations={{
+                      budgetTitle: t.budgetTitle,
+                      budgetDescription: t.budgetDescription,
+                      totalBudget: t.totalBudget,
+                      spent: t.spent,
+                      remaining: t.remaining,
+                      addExpense: t.addExpense,
+                      category: t.category,
+                      amount: t.amount,
+                      description: t.description,
+                      categoryFood: t.categoryFood,
+                      categoryTransport: t.categoryTransport,
+                      categoryAccommodation: t.categoryAccommodation,
+                      categoryActivity: t.categoryActivity,
+                      categoryShopping: t.categoryShopping,
+                      categoryOther: t.categoryOther,
+                      noExpenses: t.noExpenses,
+                      analyzeButton: t.analyzeButton,
+                      analyzing: t.analyzing,
+                      aiAnalysis: t.aiAnalysis,
+                    }}
+                  />
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-12 text-center space-y-4 flex-1">
+                  <div className="bg-gradient-to-br from-green-100 to-blue-100 p-4 rounded-full">
+                    <Wallet className="h-10 w-10 text-green-600" />
+                  </div>
+                  <p className="text-sm text-gray-500">
+                    填写预算后显示费用管理
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
       </section>
-
-      {/* Budget Manager Section */}
-      {formData.budget && parseFloat(formData.budget) > 0 && (
-        <section className="container mx-auto px-4 pb-16">
-          <div className="max-w-4xl mx-auto">
-            <BudgetManager
-              totalBudget={parseFloat(formData.budget)}
-              language={selectedLanguage === 'auto' ? detectedLanguage : selectedLanguage}
-              translations={{
-                budgetTitle: t.budgetTitle,
-                budgetDescription: t.budgetDescription,
-                totalBudget: t.totalBudget,
-                spent: t.spent,
-                remaining: t.remaining,
-                addExpense: t.addExpense,
-                category: t.category,
-                amount: t.amount,
-                description: t.description,
-                categoryFood: t.categoryFood,
-                categoryTransport: t.categoryTransport,
-                categoryAccommodation: t.categoryAccommodation,
-                categoryActivity: t.categoryActivity,
-                categoryShopping: t.categoryShopping,
-                categoryOther: t.categoryOther,
-                noExpenses: t.noExpenses,
-                analyzeButton: t.analyzeButton,
-                analyzing: t.analyzing,
-                aiAnalysis: t.aiAnalysis,
-              }}
-            />
-          </div>
-        </section>
-      )}
 
       {/* Footer */}
       <footer className="bg-white/80 backdrop-blur-sm border-t mt-16">

@@ -5,7 +5,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useSession } from 'next-auth/react'
+import { useSupabaseSession } from '@/hooks/useSupabaseAuth'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -15,7 +15,7 @@ import { Label } from '@/components/ui/label'
 import { ArrowLeft, Settings as SettingsIcon, Loader2, CheckCircle, Globe } from 'lucide-react'
 
 export default function SettingsPage() {
-  const { data: session, status } = useSession()
+  const { data: session, status } = useSupabaseSession()
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [saved, setSaved] = useState(false)
