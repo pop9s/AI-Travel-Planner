@@ -410,7 +410,7 @@ export default function Home() {
                   <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-blue-100 mb-3">
                     <MapPin className="h-8 w-8 text-blue-600" />
                   </div>
-                  <p className="text-sm text-gray-600">点击"显示"查看地图</p>
+                  <p className="text-sm text-gray-600">点击&quot;显示&quot;查看地图</p>
                 </div>
               </CardContent>
             )}

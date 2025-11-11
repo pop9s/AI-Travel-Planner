@@ -1,6 +1,29 @@
 # AI Travel Planner - AI旅行规划师 ✈️
 
-一个基于AI的智能旅行规划Web应用，帮助用户根据个人需求快速生成个性化的旅行计划。
+一个基于AI的智能旅行规划Web应用，集成阿里云通义千问大模型、高德地图、科大讯飞语音识别等技术，为用户提供从行程规划、费用管理到地图导航的一站式旅行解决方案。
+
+## 📖 项目简介
+
+AI Travel Planner 是一个现代化的全栈Web应用，旨在帮助旅行者轻松规划和管理旅行。通过AI技术，用户只需输入基本旅行信息（目的地、日期、预算、兴趣等），即可在几秒钟内获得包含每日行程、餐饮推荐、住宿建议、预算分解等详细内容的个性化旅行计划。
+
+### 🎯 项目特色
+
+- **🤖 AI驱动**：基于阿里云通义千问大模型，生成专业、详细的旅行计划
+- **☁️ 云端同步**：所有数据实时同步到云端，支持多设备访问
+- **🗺️ 地图集成**：集成高德地图，提供地点搜索、路线规划、实时导航
+- **💰 智能预算**：实时跟踪旅行开销，AI分析预算使用情况，提供优化建议
+- **🌍 多语言支持**：自动语言检测，支持中文、英文、日文、韩文
+- **🎤 语音输入**：支持科大讯飞语音识别，快速记录旅行信息
+- **📱 响应式设计**：完美适配桌面端和移动端
+- **🔒 安全可靠**：基于Supabase的用户认证和数据存储，保障数据安全
+
+### 🚀 适用场景
+
+- **个人旅行规划**：快速生成个性化旅行计划
+- **团队旅行**：多人协作，共享旅行计划
+- **预算管理**：实时跟踪旅行开销，避免超支
+- **行程优化**：AI分析并提供行程优化建议
+- **地点探索**：地图搜索景点、餐厅、酒店，规划最优路线
 
 ![Next.js](https://img.shields.io/badge/Next.js-14-black)
 ![React](https://img.shields.io/badge/React-18-blue)
@@ -8,7 +31,23 @@
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind-3-38bdf8)
 ![License](https://img.shields.io/badge/License-MIT-green)
 
-## 🎯 快速开始
+## 🚀 快速开始
+
+### 方式一：使用 Docker 镜像（推荐）
+
+```bash
+# 1. 拉取镜像
+docker pull crpi-5mgwmfh845gluhfy.cn-hangzhou.personal.cr.aliyuncs.com/njuse-hanke/hanke0725:latest
+
+# 2. 创建 .env 文件，配置环境变量（见 API 配置要求）
+
+# 3. 运行容器
+docker run -d -p 3000:3000 --env-file .env --name ai-travel-planner crpi-5mgwmfh845gluhfy.cn-hangzhou.personal.cr.aliyuncs.com/njuse-hanke/hanke0725:latest
+```
+
+访问：**http://localhost:3000**
+
+### 方式二：Git Clone 本地开发
 
 ```bash
 # 克隆项目
@@ -18,255 +57,178 @@ cd AI-Travel-Planner
 # 安装依赖
 npm install
 
-# 配置环境变量
-cp .env.local.example .env.local
-# 编辑 .env.local 添加你的 API_KEY
-# 通义千问 API 密钥
-DASHSCOPE_API_KEY=
-NEXT_PUBLIC_SUPABASE_URL=
-NEXT_PUBLIC_SUPABASE_ANON_KEY=
-SUPABASE_SERVICE_ROLE_KEY=
- # 高德地图 API 密钥
-NEXT_PUBLIC_AMAP_KEY=
-NEXT_PUBLIC_AMAP_SECURITY_KEY=
-# NextAuth 配置
-NEXTAUTH_URL=
-NEXTAUTH_SECRET=
-# 科大讯飞语音识别 API 密钥
-NEXT_PUBLIC_IFLYTEK_APP_ID=
-NEXT_PUBLIC_IFLYTEK_API_KEY=
-NEXT_PUBLIC_IFLYTEK_API_SECRET=
+# 配置环境变量（创建 .env.local 文件，见 API 配置要求）
+# 初始化数据库（在 Supabase SQL Editor 中执行 supabase/migrations/001_initial_schema.sql）
+
 # 启动开发服务器
 npm run dev
 ```
 
-访问 http://localhost:3000 开始使用！
+## 🔑 API 配置要求
 
-📖 **新手？** 请查看 [从这里开始](START_HERE.md)
-📖 **详细说明** 请查看 [快速开始指南](QUICKSTART.md)
+### 必需配置
+
+- **Supabase**: 数据库和用户认证
+  - 获取方式：访问 [Supabase](https://supabase.com/) 创建项目
+  - 详细指南：[Supabase 配置指南](SUPABASE_SETUP.md)
+
+- **通义千问 API**: AI 功能
+  - 获取方式：访问 [阿里云 DashScope](https://dashscope.console.aliyun.com/) 创建 API Key
+  - 详细指南：[通义千问配置指南](QWEN_SETUP.md)
+
+### 可选配置
+
+- **高德地图 API**: 地图功能（[配置指南](docs/AMAP_SETUP.md)）
+- **科大讯飞 API**: 语音识别（[配置指南](IFLYTEK_SETUP.md)）
+
+📖 完整配置说明：见 [环境配置指南](docs/ENV_CONFIG_GUIDE.md)
+
+## 🔄 工作流程
+
+### 1. 用户注册/登录
+- 新用户注册账户，已有账户直接登录
+- 登录后数据自动同步到云端
+
+### 2. 创建旅行计划
+- 填写旅行信息（目的地、日期、预算、兴趣等）
+- 可选择使用语音输入快速录入
+- AI生成个性化旅行计划（10-30秒）
+
+### 3. 查看和管理计划
+- 查看生成的旅行计划详情
+- 保存计划到账户
+- 在地图上查看目的地位置
+- 搜索附近景点、餐厅、酒店
+
+### 4. 费用管理
+- 记录旅行中的各项开销
+- 实时查看预算使用情况
+- AI分析预算，提供优化建议
+- 语音快速记录费用
+
+### 5. 计划管理
+- 查看所有已保存的旅行计划
+- 编辑或删除计划
+- 多设备同步访问
 
 ## ✨ 功能特点
 
 ### 核心功能
-- 🤖 **AI智能规划**: 使用阿里云通义千问大模型生成专业的旅行计划
-- 👤 **用户管理**: 注册登录系统，安全的账户管理 🆕
-- ☁️ **云端同步**: 旅行计划、费用记录自动云端同步，多设备访问 🆕
-- 📚 **计划管理**: 保存和管理多份旅行计划，随时查看编辑 🆕
-- 💰 **费用管理**: 智能记录旅行开销，AI 实时分析预算使用情况
-- 🗺️ **地图导航**: 基于高德地图的地理位置服务和智能导航 🆕
+
+#### 🤖 AI智能规划
+- **快速生成**：输入目的地、日期、预算等信息，AI在10-30秒内生成完整旅行计划
+- **详细内容**：包含每日行程安排、餐饮推荐、住宿建议、预算分解、实用信息
+- **个性化定制**：根据用户兴趣、特殊需求生成专属计划
+- **智能优化**：AI分析行程合理性，提供优化建议
+
+#### 👤 用户管理系统
+- **安全认证**：基于Supabase Auth的用户注册、登录系统
+- **账户管理**：个人信息管理、偏好设置
+- **数据隔离**：每个用户的数据独立存储，保障隐私安全
+
+#### ☁️ 云端同步
+- **实时同步**：旅行计划、费用记录自动同步到云端
+- **多设备访问**：支持电脑、手机、平板等多设备访问
+- **数据备份**：所有数据安全存储在云端，防止丢失
+
+#### 📚 计划管理
+- **保存计划**：一键保存生成的旅行计划
+- **计划列表**：查看所有已保存的旅行计划
+- **计划详情**：查看完整的计划内容
+- **计划删除**：管理不需要的计划
+
+#### 💰 费用预算管理
+- **实时跟踪**：记录餐饮、交通、住宿、活动、购物等各类开销
+- **预算监控**：实时显示总预算、已花费、剩余金额
+- **可视化展示**：进度条显示预算使用情况（绿色/黄色/红色）
+- **AI分析**：AI分析预算使用情况，提供优化建议和风险预警
+- **语音记录**：支持语音输入金额和备注，智能识别中文数字
+
+#### 🗺️ 地图导航
+- **地点搜索**：搜索景点、餐厅、酒店等地点
+- **地图展示**：在地图上显示目的地位置
+- **路线规划**：规划最优路线，显示距离和预计时间
+- **一键导航**：跳转到高德地图进行导航
 
 ### 体验功能
-- 🌍 **多语言支持**: 自动语言检测，支持中/英/日/韩 4 种语言
-- 🎤 **语音输入**: 支持科大讯飞语音识别，更准确的中文识别
-- 🔍 **地点搜索**: 搜索景点、餐厅、酒店等，一键导航 🆕
-- 🧭 **路线规划**: 智能路线规划，显示距离和预计时间 🆕
-- 🎨 **现代化UI**: 基于Tailwind CSS的美观响应式设计
-- 📋 **详细行程**: 包含每日行程、餐饮推荐、住宿建议、预算分解
-- ⚡ **快速响应**: 基于Next.js 14的高性能架构
-- 🌏 **多场景支持**: 适用于各种旅行目的地和需求
-- 💵 **成本友好**: 使用国内大模型，价格更实惠
+
+#### 🌍 多语言支持
+- **自动检测**：自动检测用户输入的语言
+- **多语言界面**：支持中文、英文、日文、韩文4种语言
+- **AI多语言**：AI根据检测到的语言生成对应语言的旅行计划
+
+#### 🎤 语音输入
+- **语音识别**：支持科大讯飞语音识别，准确识别中文语音
+- **智能转换**：自动将语音转换为文本，识别中文数字
+- **快速录入**：快速录入旅行信息和费用记录
+
+#### 🎨 现代化UI
+- **响应式设计**：完美适配桌面端和移动端
+- **美观界面**：基于Tailwind CSS的现代化设计
+- **流畅动画**：流畅的交互动画效果
+- **暗色模式**：支持暗色主题（可选）
+
+#### ⚡ 高性能
+- **快速响应**：基于Next.js 14的Server Components和App Router
+- **优化加载**：代码分割、懒加载优化
+- **缓存机制**：智能缓存，提升性能
 
 ## 🛠️ 技术栈
 
-### 前端
-- **框架**: Next.js 14 (App Router)
-- **UI库**: React 18
-- **样式**: Tailwind CSS + Shadcn/ui
-- **语言**: TypeScript
-- **图标**: Lucide React
+### 前端技术
+- **框架**: Next.js 14 (App Router) - 服务端渲染和静态生成
+- **UI库**: React 18 - 组件化开发
+- **样式**: Tailwind CSS + Shadcn/ui - 现代化UI组件库
+- **语言**: TypeScript - 类型安全
+- **图标**: Lucide React - 丰富的图标库
+- **状态管理**: React Hooks - 本地状态管理
+- **表单处理**: React Hook Form - 表单验证和处理
 
-### 后端
-- **API路由**: Next.js API Routes
-- **数据库**: Supabase (PostgreSQL)
-- **认证**: Supabase Auth
-- **AI服务**: 阿里云通义千问 (Qwen)
-- **语音识别**: 科大讯飞 WebAPI
-- **地图服务**: 高德地图 API
+### 后端技术
+- **API路由**: Next.js API Routes - 服务端API
+- **数据库**: Supabase (PostgreSQL) - 关系型数据库
+- **认证**: Supabase Auth - 用户认证和授权
+- **数据存储**: Supabase Storage - 文件存储
+- **实时同步**: Supabase Realtime - 实时数据同步
 
-## 📚 文档导航
+### 第三方服务
+- **AI服务**: 阿里云通义千问 (Qwen) - 大语言模型
+  - 模型：qwen-plus（推荐）、qwen-turbo、qwen-max
+  - 用途：生成旅行计划、预算分析
+- **语音识别**: 科大讯飞 WebAPI - 中文语音识别
+  - 用途：语音输入、语音转文字
+- **地图服务**: 高德地图 API - 地图和导航
+  - 用途：地点搜索、路线规划、地图展示
 
-### 快速开始
-- 📖 [快速开始指南](QUICKSTART.md) - 5分钟快速上手
-- 🗄️ [Supabase 配置](SUPABASE_SETUP.md) - 数据库和认证配置（5分钟）🆕
-- 🔑 [通义千问配置](QWEN_SETUP.md) - API密钥获取和配置
-- 🗺️ [高德地图配置](docs/AMAP_SETUP.md) - 地图API密钥获取和配置 🆕
+### 开发工具
+- **包管理**: npm / yarn
+- **代码质量**: ESLint, Prettier
+- **版本控制**: Git
+- **容器化**: Docker, Docker Compose
+- **部署**: 阿里云容器镜像服务
 
-### 核心功能
-- 👤 [用户管理系统](USER_SYSTEM.md) - 注册登录、云端同步完整指南
-- 💰 [费用预算管理](BUDGET_FEATURE.md) - 智能费用记录与 AI 预算分析
-- 🗺️ [地图导航功能](README_MAP_FEATURE.md) - 地图展示、地点搜索、路线规划 🆕
-- 🌍 [多语言功能](MULTILANG_FEATURE.md) - 多语言支持和语言检测
+### 架构设计
+- **前后端分离**: Next.js全栈框架，前后端统一
+- **服务端渲染**: SSR和SSG提升首屏加载速度
+- **API路由**: RESTful API设计
+- **数据库设计**: PostgreSQL关系型数据库，支持复杂查询
+- **安全机制**: Supabase Row Level Security (RLS) 数据安全
+- **缓存策略**: 客户端和服务端缓存优化
 
-### 语音功能
-- 🎤 [语音输入功能](VOICE_INPUT_FEATURE.md) - 语音输入使用指南
-- 🎙️ [科大讯飞配置](IFLYTEK_SETUP.md) - 科大讯飞语音识别配置
-- 📊 [语音方案对比](VOICE_COMPARISON.md) - 两种语音识别方案对比
+## 📚 相关文档
 
-### 开发文档
-- 📖 [使用指南](USAGE.md) - 详细功能说明和使用技巧
-- 🚀 [部署指南](DEPLOYMENT.md) - 部署到生产环境
-- 🏗️ [项目结构](PROJECT_STRUCTURE.md) - 代码架构和目录说明
-- 🤝 [贡献指南](CONTRIBUTING.md) - 如何参与开发
-
-## 📸 项目截图
-
-### 主页面
-填写旅行需求，AI将为你生成专属计划
-
-### 旅行计划
-详细的每日行程、餐饮推荐、预算分解
-
-### 响应式设计
-完美支持桌面端和移动端
-
-## 🚀 部署
-
-### Vercel (推荐)
-
-1. 将代码推送到GitHub
-2. 在 [Vercel](https://vercel.com) 导入项目
-3. 添加环境变量 `OPENAI_API_KEY`
-4. 部署
-
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/yourusername/AI-Travel-Planner)
-
-### 其他平台
-
-本项目是标准的Next.js应用，可以部署到任何支持Node.js的平台：
-
-- **Netlify**: 使用Next.js构建插件
-- **Railway**: 直接部署
-- **Docker**: 使用Next.js官方Docker镜像
-
-## 📖 使用说明
-
-1. **填写旅行信息**
-   - 目的地：输入想去的城市或国家
-   - 出发日期：选择旅行开始日期
-   - 旅行天数：计划的旅行时长
-   - 旅行人数：同行人数
-   - 预算：总预算（人民币）
-   - 兴趣爱好：如美食、历史、自然等
-   - 特殊要求：任何特殊需求或偏好
-
-2. **生成计划**
-   - 点击"生成AI旅行计划"按钮
-   - AI将在几秒钟内生成详细的旅行计划
-
-3. **查看与导出**
-   - 在右侧查看生成的旅行计划
-   - 使用"下载计划"保存为文本文件
-   - 使用"分享"功能分享给朋友
-
-## 🎯 项目结构
-
-```
-AI-Travel-Planner/
-├── app/
-│   ├── api/
-│   │   └── plan/
-│   │       └── route.ts          # AI旅行规划API
-│   ├── globals.css               # 全局样式
-│   ├── layout.tsx                # 根布局
-│   └── page.tsx                  # 主页面
-├── components/
-│   ├── ui/                       # UI组件库
-│   │   ├── button.tsx
-│   │   ├── card.tsx
-│   │   ├── input.tsx
-│   │   ├── textarea.tsx
-│   │   └── label.tsx
-│   └── TravelPlan.tsx            # 旅行计划展示组件
-├── lib/
-│   └── utils.ts                  # 工具函数
-├── public/                       # 静态资源
-├── .env.local                    # 环境变量（需自行创建）
-├── next.config.js                # Next.js配置
-├── tailwind.config.js            # Tailwind配置
-├── tsconfig.json                 # TypeScript配置
-└── package.json                  # 项目依赖
-```
-
-## 🔧 自定义配置
-
-### 修改AI模型
-
-在 `app/api/plan/route.ts` 中修改模型：
-
-```typescript
-const completion = await openai.chat.completions.create({
-  model: 'gpt-4-turbo-preview', // 可改为 'gpt-3.5-turbo' 以降低成本
-  // ...
-})
-```
-
-### 调整AI响应长度
-
-修改 `max_tokens` 参数：
-
-```typescript
-max_tokens: 3000, // 增加以获得更详细的计划
-```
-
-### 自定义样式
-
-- 修改 `app/globals.css` 中的CSS变量
-- 编辑 `tailwind.config.js` 自定义主题
-
-## 💡 已完成功能
-
-- [x] 多语言支持（中/英/日/韩）
-- [x] 语音输入（浏览器原生 + 科大讯飞）
-- [x] 用户登录和历史记录保存
-- [x] 费用预算管理
-- [x] AI 预算分析
-- [x] 智能数字识别
-- [x] 地图集成显示景点位置 🆕
-- [x] 地点搜索和路线规划 🆕
-
-## 🚧 规划中的功能
-
-- [ ] 导出为PDF格式
-- [ ] 天气预报集成
-- [ ] 航班和酒店预订集成
-- [ ] 社交分享优化
-- [ ] 评论和评分系统
-- [ ] 费用数据导出和统计图表
-- [ ] 实时路况显示
-- [ ] 公交/地铁路线规划
-- [ ] 周边推荐（美食、酒店、景点）
+- 🚀 [Docker 部署指南](DOCKER.md) - Docker 部署和阿里云镜像使用
+- 🗄️ [Supabase 配置](SUPABASE_SETUP.md) - 数据库配置指南
+- 🔑 [通义千问配置](QWEN_SETUP.md) - API 密钥配置
+- 🗺️ [高德地图配置](docs/AMAP_SETUP.md) - 地图功能配置
+- 🎙️ [科大讯飞配置](IFLYTEK_SETUP.md) - 语音识别配置
+- 📖 [使用指南](USAGE.md) - 功能使用说明
+- 🤝 [贡献指南](CONTRIBUTING.md) - 参与开发
 
 ## 🤝 贡献
 
-欢迎提交Issue和Pull Request！
-
-1. Fork 本仓库
-2. 创建特性分支 (`git checkout -b feature/AmazingFeature`)
-3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
-4. 推送到分支 (`git push origin feature/AmazingFeature`)
-5. 开启 Pull Request
+欢迎提交 Issue 和 Pull Request！详见 [贡献指南](CONTRIBUTING.md)
 
 ## 📄 许可证
 
-本项目采用 MIT 许可证 - 查看 [LICENSE](LICENSE) 文件了解详情
-
-## 🙏 致谢
-
-- [Next.js](https://nextjs.org/) - React框架
-- [阿里云通义千问](https://dashscope.aliyun.com/) - AI服务
-- [Supabase](https://supabase.com/) - 数据库和认证
-- [高德地图](https://lbs.amap.com/) - 地图服务
-- [科大讯飞](https://www.xfyun.cn/) - 语音识别
-- [Tailwind CSS](https://tailwindcss.com/) - CSS框架
-- [Lucide](https://lucide.dev/) - 图标库
-
-## 📞 联系方式
-
-如有问题或建议，欢迎通过以下方式联系：
-
-- 提交 [Issue](https://github.com/yourusername/AI-Travel-Planner/issues)
-- Email: your.email@example.com
-
----
-
-**Enjoy your AI-powered travel planning! 🌍✨**
+MIT License - 查看 [LICENSE](LICENSE) 文件了解详情

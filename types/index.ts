@@ -2,20 +2,16 @@
  * 全局类型定义
  */
 
-import { Document, Types } from 'mongoose'
-
 // ==================== 用户相关类型 ====================
 
-export interface IUser extends Document {
-  _id: Types.ObjectId
+export interface IUser {
+  id: string
   email: string
-  password: string
   name: string
   avatar?: string
   language: 'zh' | 'en' | 'ja' | 'ko'
   createdAt: Date
   updatedAt: Date
-  comparePassword(candidatePassword: string): Promise<boolean>
 }
 
 export interface UserPreferences {
@@ -27,9 +23,9 @@ export interface UserPreferences {
 
 // ==================== 旅行计划相关类型 ====================
 
-export interface ITravelPlan extends Document {
-  _id: Types.ObjectId
-  userId: Types.ObjectId
+export interface ITravelPlan {
+  id: string
+  userId: string
   title: string
   destination: string
   startDate: Date
@@ -58,10 +54,10 @@ export interface TravelPlanFormData {
 
 // ==================== 费用记录相关类型 ====================
 
-export interface IExpense extends Document {
-  _id: Types.ObjectId
-  userId: Types.ObjectId
-  travelPlanId?: Types.ObjectId
+export interface IExpense {
+  id: string
+  userId: string
+  travelPlanId?: string
   category: 'food' | 'transport' | 'accommodation' | 'activity' | 'shopping' | 'other'
   amount: number
   currency: string

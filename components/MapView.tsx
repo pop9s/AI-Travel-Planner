@@ -810,7 +810,7 @@ export default function MapView({
           </div>
           {!currentPosition && (
             <p className="text-xs text-yellow-600 mt-2">
-              💡 点击上方"获取位置"按钮可获取您的实时位置
+              💡 点击上方&quot;获取位置&quot;按钮可获取您的实时位置
             </p>
           )}
         </div>

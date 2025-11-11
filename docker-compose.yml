@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  ai-travel-planner:
+    # 方式1: 使用阿里云镜像（推荐，无需构建，默认启用）
+    # 如果在阿里云 ECS 上，可以使用 VPC 地址（更快，不消耗公网流量）：
+    # image: crpi-5mgwmfh845gluhfy-vpc.cn-hangzhou.personal.cr.aliyuncs.com/njuse-hanke/hanke0725:latest
+    image: crpi-5mgwmfh845gluhfy.cn-hangzhou.personal.cr.aliyuncs.com/njuse-hanke/hanke0725:latest
+    
+    # 方式2: 本地构建镜像（如果需要自定义构建）
+    # 取消下面 build 部分的注释，并注释掉上面的 image 行
+    # build:
+    #   context: .
+    #   dockerfile: Dockerfile
+    container_name: ai-travel-planner
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    environment:
+      # Node 环境
+      - NODE_ENV=production
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/api/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+
