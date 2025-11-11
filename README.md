@@ -98,6 +98,46 @@ NEXT_PUBLIC_IFLYTEK_APP_ID=xxxxxxxx
 NEXT_PUBLIC_IFLYTEK_API_KEY=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 NEXT_PUBLIC_IFLYTEK_API_SECRET=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 ```
+### 配置说明
+
+#### 1. Supabase 配置（必需）
+
+**用途**：数据库和用户认证系统
+
+**获取步骤**：
+1. 访问 [Supabase](https://supabase.com/) 注册/登录
+2. 创建新项目（免费计划即可）
+3. 进入 **Settings** → **API**
+4. 复制以下信息到 `.env` 文件：
+   - `Project URL` → `NEXT_PUBLIC_SUPABASE_URL`
+   - `anon public` key → `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   - `service_role` key → `SUPABASE_SERVICE_ROLE_KEY`（保密！）
+
+**数据库初始化（⚠️ 必须执行，否则无法使用数据库功能）**：
+
+1. 在 Supabase 控制台，进入 **SQL Editor**
+2. 复制 `supabase/migrations/001_initial_schema.sql` 的全部内容
+   - 如果使用 Docker 镜像，需要先克隆项目获取 SQL 文件
+   - 或直接访问：https://github.com/yourusername/AI-Travel-Planner/blob/main/supabase/migrations/001_initial_schema.sql
+3. 粘贴到 SQL Editor 并执行
+4. 看到成功提示：
+   ```
+   ✅ 数据库架构创建成功！
+   📊 创建了 3 个表：users, travel_plans, expenses
+   🔒 已启用行级安全（RLS）
+   ```
+
+**验证数据库表是否创建成功**：
+在 Supabase 控制台的 **Table Editor** 中，应该能看到以下表：
+- `users`
+- `travel_plans`
+- `expenses`
+
+**如果数据库表未创建，会导致以下问题**：
+- ❌ 用户注册失败
+- ❌ 无法保存旅行计划
+- ❌ 无法记录费用
+- ❌ 数据库功能完全无法使用
 ```
 最终API配置如下：
 # 通义千问 API 密钥
