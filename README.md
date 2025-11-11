@@ -98,13 +98,14 @@ NEXT_PUBLIC_IFLYTEK_APP_ID=xxxxxxxx
 NEXT_PUBLIC_IFLYTEK_API_KEY=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 NEXT_PUBLIC_IFLYTEK_API_SECRET=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 ```
+```
 最终API配置如下：
 # 通义千问 API 密钥
 DASHSCOPE_API_KEY=
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
 SUPABASE_SERVICE_ROLE_KEY=
- # 高德地图 API 密钥
+# 高德地图 API 密钥
 NEXT_PUBLIC_AMAP_KEY=
 NEXT_PUBLIC_AMAP_SECURITY_KEY=
 # NextAuth 配置
@@ -114,6 +115,7 @@ NEXTAUTH_SECRET=your_random_secret_here
 NEXT_PUBLIC_IFLYTEK_APP_ID=
 NEXT_PUBLIC_IFLYTEK_API_KEY=
 NEXT_PUBLIC_IFLYTEK_API_SECRET=
+```
 - **Supabase**: 数据库和用户认证
   - 获取方式：访问 [Supabase](https://supabase.com/) 创建项目
   - 详细指南：[Supabase 配置指南](SUPABASE_SETUP.md)
