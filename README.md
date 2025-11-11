@@ -67,7 +67,42 @@ npm run dev
 ## 🔑 API 配置要求
 
 ### 必需配置
+创建 `.env` 文件（Docker方式）或 `.env.local` 文件（本地开发），添加以下配置：
 
+```env
+# ===================================
+# 必需配置
+# ===================================
+
+# Supabase 配置（必需）
+# 获取方式：访问 https://supabase.com/ 创建项目
+# 在 Project Settings > API 中获取以下信息
+NEXT_PUBLIC_SUPABASE_URL=https://xxxxxxxxxxxxx.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh4eHh4eHh4eHh4eHh4eHh4eHgiLCJyb2xlIjoiYW5vbiIsImlhdCI6MTY0NzE2ODAwMCwiZXhwIjoxOTYyNzQ0MDAwfQ.xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh4eHh4eHh4eHh4eHh4eHh4eHgiLCJyb2xlIjoic2VydmljZV9yb2xlIiwiaWF0IjoxNjQ3MTY4MDAwLCJleHAiOjE5NjI3NDQwMDB9.xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+# 通义千问 API 密钥（必需）
+# 获取方式：访问 https://dashscope.console.aliyun.com/ 创建 API Key
+# 格式：sk-xxxxxxxxxxxxxxxxxxxxxxxx
+DASHSCOPE_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+# ===================================
+# 可选配置
+# ===================================
+
+# 高德地图 API（可选，用于地图功能）
+# 获取方式：访问 https://lbs.amap.com/ 创建应用
+# 如果不配置，地图功能将不可用，但不影响其他功能
+NEXT_PUBLIC_AMAP_KEY=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+NEXT_PUBLIC_AMAP_SECURITY_KEY=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+# 科大讯飞语音识别（可选，用于语音输入）
+# 获取方式：访问 https://www.xfyun.cn/ 创建应用
+# 如果不配置，将使用浏览器原生语音识别
+NEXT_PUBLIC_IFLYTEK_APP_ID=xxxxxxxx
+NEXT_PUBLIC_IFLYTEK_API_KEY=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+NEXT_PUBLIC_IFLYTEK_API_SECRET=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+```
 - **Supabase**: 数据库和用户认证
   - 获取方式：访问 [Supabase](https://supabase.com/) 创建项目
   - 详细指南：[Supabase 配置指南](SUPABASE_SETUP.md)
