@@ -20,8 +20,22 @@ npm install
 
 # 配置环境变量
 cp .env.local.example .env.local
-# 编辑 .env.local 添加你的 OPENAI_API_KEY
-
+# 编辑 .env.local 添加你的 API_KEY
+# 通义千问 API 密钥
+DASHSCOPE_API_KEY=sk-2e47e3f34d3f4d1eb20f70e696f18c64
+NEXT_PUBLIC_SUPABASE_URL=https://gpsaanuenffmmgcyqwhp.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdwc2FhbnVlbmZmbW1nY3lxd2hwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI3ODY2NzEsImV4cCI6MjA3ODM2MjY3MX0.qVsOGcPyrC2WNsjYOWFm9QTKAQblkLDfylDk32dKaJo
+SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdwc2FhbnVlbmZmbW1nY3lxd2hwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2Mjc4NjY3MSwiZXhwIjoyMDc4MzYyNjcxfQ.XawlX0N3zR0TOcLNf3R-0hTpbjNwCtj8CsUKsOtNi8k
+ # 高德地图 API 密钥
+NEXT_PUBLIC_AMAP_KEY=a030edd080cdc48dcb369df0f19c5924
+NEXT_PUBLIC_AMAP_SECURITY_KEY=c7e1809ab5b07843085403da3a8df148
+# NextAuth 配置
+NEXTAUTH_URL=http://localhost:3000
+NEXTAUTH_SECRET=your_random_secret_here
+# 科大讯飞语音识别 API 密钥
+NEXT_PUBLIC_IFLYTEK_APP_ID=d1c084a9
+NEXT_PUBLIC_IFLYTEK_API_KEY=18aba12f7267a9523c3b1cdb18814eec
+NEXT_PUBLIC_IFLYTEK_API_SECRET=MWUyNDQyNTdkNzNiMzg3MzdhNzQ0MjU1
 # 启动开发服务器
 npm run dev
 ```
